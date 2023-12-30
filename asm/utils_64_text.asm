@@ -3,14 +3,31 @@ section .text
 extern GetStdHandle
 extern WriteFile
 
-; arg0 str         ; rcx
-; ret: num chars
+; arg0: dst         rcx
+; arg1: src         rdx
+; arg2: nBytes      r8
+memcpy:
+    push rbp
+    mov rbp, rsp
+
+    mov rsi, rdx
+    mov rdi, rcx
+    mov rcx, r8
+
+    rep movsb
+
+    leave
+    ret
+
+; arg0 str          rcx
+; ret: num chars    rax
 strlen:
     push rbp
     mov rbp, rsp
 
     ; [rbp - 8] = output strlen
-    sub rsp, 8
+    ; 8 bytes padding
+    sub rsp, 16                         ; allocate local variable space
     mov qword [rbp - 8], 0              ; strlen = 0
 
     jmp .while_condition
@@ -25,7 +42,7 @@ strlen:
             jne .loop
     
     mov qword rax, [rbp - 8]            ; strlen in rax
-    add rsp, 8
+    add rsp, 16                         ; free local variable space
 
     leave
     ret
@@ -59,20 +76,29 @@ wstrlen:
     leave
     ret
 
-
-; arg0: dst         rcx
-; arg1: src         rdx
-; arg2: nBytes      r8
-memcpy:
+; arg0: dst        rcx
+; arg1: src        rdx
+strcpy:
     push rbp
     mov rbp, rsp
 
-    mov rsi, rdx
-    mov rdi, rcx
-    mov rcx, r8
+    mov [rbp + 16], rcx             ; dst
+    mov [rbp + 24], rdx             ; src
 
-    rep movsb
+    mov rsi, [rbp + 24]             ; src
+    mov rdi, [rbp + 16]             ; dst
 
+.loop:
+    lodsb
+
+    cmp al, 0                       ; end of string ?
+    jz .loop_end                    ; yes
+
+    stosb
+    jmp .loop
+
+.loop_end:
+    
     leave
     ret
 
@@ -412,17 +438,20 @@ my_xor:
 
 ; arg0: ptr to string           rcx
 ; arg1: chr                     rdx
+;
+; return: ptr to chr            rax
 strchr:
     push rbp
     mov rbp, rsp
 
-    ; [rbp + 16] = ptr to string, [rbx + 24] = chr
-    mov [rbp + 16], rcx
-    mov [rbp + 24], rdx
+    mov [rbp + 16], rcx             ; ptr to string
+    mov [rbp + 24], rdx             ; chr
 
-    ; [rbp - 8] = cRet, [rbp - 16] = strlen
+    ; [rbp - 8] = cRet
+    ; [rbp - 16] = strlen
     ; [rbp - 24] = c
-    sub rsp, 24 
+    ; 8 bytes padding
+    sub rsp, 32
 
     mov qword [rbp - 8], 0         ; cRet = 0
 
@@ -434,7 +463,7 @@ strchr:
 
     mov qword [rbp - 24], 0         ; c = 0
     .loop:
-        mov rdx, [rbp + 16]          ; ptr to string in rdx     
+        mov rdx, [rbp + 16]         ; ptr to string in rdx     
         mov rbx, [rbp - 24]         ; c in rbx
 
         mov cl, [rdx + rbx]         ; sStr[c]
@@ -453,9 +482,10 @@ strchr:
             add rdx, rbx
             mov [rbp - 8], rdx     ; cRet = str + c
 
-    add rsp, 24
+    add rsp, 32
 
-    mov rax, [ebp - 24]
+    mov rax, [rbp - 24]
+    add rax, [rbp +  16]
 
     leave
     ret
@@ -581,26 +611,31 @@ get_kernel_module_handle:
 
 ; arg0: base addr           rcx
 ; arg1: proc name           rdx
+; arg2: proc name len       r8
 ;
 ; return: proc addr         rax
 get_proc_address_by_name:
     push rbp
     mov rbp, rsp
 
-    mov [rbp + 16], rcx
-    mov [rbp + 24], rdx
+    mov [rbp + 16], rcx         ; base addr
+    mov [rbp + 24], rdx         ; proc name
+    mov [rbp + 32], r8          ; proc name len
 
-    ; [rbp - 8] = return code
+    ; [rbp - 8] = return value
     ; [rbp - 16] = nt headers
     ; [rbp - 24] = export data directory
     ; [rbp - 32] = export directory
     ; [rbp - 40] = address of functions
     ; [rbp - 48] = address of names
     ; [rbp - 56] = address of name ordinals
-    ; 8 bytes padding
-    sub rsp, 64                 ; allocate local variable space
+    ; [rbp - 312] = forwarded dll.function name - 256 bytes
+    ; [rbp - 320] = function name
+    ; [rbp - 328] = loaded forwarded library addr
+    ; [rbp - 336] = function name strlen
+    sub rsp, 336                 ; allocate local variable space
 
-    mov qword [rbp - 8], 0      ; return code
+    mov qword [rbp - 8], 0      ; return value
 
     mov rbx, [rbp + 16]         ; base addr
     add rbx, 0x3c               ; e_lfa_new
@@ -619,15 +654,148 @@ get_proc_address_by_name:
 
     mov rax, [rbp + 16]         ; base addr
     mov rcx, [rbp - 24]         ; export data directory
-    mov ebx, dword [rcx]
+    mov ebx, [rcx]
     add rax, rbx                ; export directory
 
     mov [rbp - 32], rax         ; export directory
 
-.shutdown:
-    add rsp, 64                 ; free local variable space
+    add rax, 28                 ; address of functions rva
+    mov eax, [rax]              ; rva in rax
+    add rax, [rbp + 16]         ; base addr + address of function rva
 
-    mov rax, [rbp - 8]          ; return code
+    mov [rbp - 40], rax         ; address of functions
+
+    mov rax, [rbp - 32]         ; export directory
+    add rax, 32                 ; address of names rva
+    mov eax, [rax]              ; rva in rax
+    add rax, [rbp + 16]         ; base addr + address of names rva
+
+    mov [rbp - 48], rax         ; address of names
+
+    mov rax, [rbp - 32]         ; export directory
+    add rax, 36                 ; address of name ordinals
+    mov eax, [rax]              ; rva in rax
+    add rax, [rbp + 16]         ; base addr + address of name ordinals
+
+    mov [rbp - 56], rax         ; address of name ordinals
+
+    mov r10, [rbp - 32]         ; export directory
+    add r10, 24                 ; number of names
+    mov r10d, [r10]             ; number of names in r10
+
+    xor ecx, ecx
+.loop_func_names:
+    ; to index into an array, we multiply the size of each element with the 
+    ; current index and add it to the base addr of the array
+    push rcx
+    mov dword eax, 4            ; size of dword
+    mul rcx                     ; size * index
+    mov rbx, [rbp - 48]         ; address of names
+    add rbx, rax                ; address of names + n
+    mov ebx, [rbx]              ; address of names [n]
+
+    add rbx, [rbp +  16]        ; base addr + address of names [n]
+
+    sub rsp, 32
+    mov rcx, [rbp + 24]         ; proc name
+    mov rdx, [rbp + 32]         ; proc name len
+    mov r8, rbx
+    call strcmpiAA
+    add rsp, 32
+
+    cmp rax, 1                  ; are strings equal
+    je .function_found
+
+    pop rcx
+    inc rcx
+    cmp rcx, r10
+    jne .loop_func_names
+
+    jmp .shutdown
+
+.function_found:
+    pop rcx                     ; current index popped
+    mov rax, 2
+    mul rcx                     ; index * size of element of addrees of name ordinals(word)
+    add rax, [rbp - 56]         ; address of name ordinals + n
+    movzx eax, word [rax]       ; address of name ordinals [n]; index into address of functions
+
+    mov rbx, 4                  ; size of element of address of functions(dword)
+    mul rbx                     ; index * size of element
+    add rax, [rbp - 40]         ; address of functions + index
+    mov eax, dword [rax]        ; address of functions [index]
+
+    add rax, [rbp + 16]         ; base addr + address of functions [index]
+
+    mov [rbp - 8], rax          ; return value
+
+    mov r8, [rbp + 16]          ; base addr
+    mov rax, [rbp - 24]         ; export data directory
+    mov eax, [rax]              ; export data directory virtual address
+    add r8, rax                 ; base addr + virtual addr
+
+    mov r9, r8
+    mov rax, [rbp - 24]         ; export data directory
+    add rax, 4                  ; export data directory size
+    mov eax, [rax]              ; export data directory size
+    add r9, rax                 ; base addr + virtual addr + size
+
+    cmp [rbp - 8], r8           ; below the start of the export directory
+    jl .shutdown                ; not forwarded
+                                ; or
+    cmp [rbp - 8], r9           ; above the end of the export directory
+    jg .shutdown                ; not forwarded
+
+    ; make a copy of the string of the forwarded dll
+    sub rsp, 32
+    mov rcx, rbp
+    sub rcx, 312
+    mov rdx, [rbp - 8]
+    call strcpy
+    add rsp, 32
+
+    ; find the position of the '.' which separates the dll name and function name
+    sub rsp, 32
+    mov rcx, rbp
+    sub rcx, 312
+    mov rdx, '.'
+    call strchr                 ; ptr to chr in rax
+    add rsp, 32
+    
+    mov byte [rax], 0
+    inc rax
+
+    mov [rbp - 320], rax        ; forwarded function name
+
+    sub rsp, 32
+    mov rcx, rbp
+    sub rcx, 312
+    call [loadlibrary_addr]     ; library addr
+    add rsp, 32
+
+    mov [rbp - 328], rax        ; library addr
+
+int3
+    sub rsp, 32
+    mov rcx, [rbp - 320]
+    call strlen                 ; strlen in rax
+    add rsp, 32
+
+    mov [rbp - 336], rax        ; function name strlen
+
+    sub rsp, 32
+    mov rcx, [rbp - 328]
+    mov rdx, [rbp - 320]
+    mov r8, [rbp - 336]
+    call get_proc_address_by_name       ; proc addr
+    add rsp, 32
+
+    mov [rbp - 8], rax          ; proc addr
+
+.shutdown:
+    add rsp, 336                ; free local variable space
+
+    mov rax, [rbp - 8]          ; return value
 
     leave
     ret

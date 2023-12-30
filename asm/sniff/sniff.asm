@@ -26,15 +26,33 @@ main:
     push rbp
     mov rbp, rsp
 
+    ; [rbp - 8] = return value
+    ; [rbp - 16] = kernel addr
+    sub rsp, 16                         ; allocate local variables space
+
     sub rsp, 32
     call get_kernel_module_handle       ; kernel module handle in rax
     add rsp, 32
 
+    mov [rbp - 16], rax                 ; kernel module addr
+
     sub rsp, 32
-    mov rcx, rax
+    mov rcx, [rbp - 16]
     mov rdx, loadlibrary_str
-    call get_proc_address_by_name
+    mov r8, loadlibrary_str.len
+    call get_proc_address_by_name       ; proc addr in rax
     add rsp, 32
+
+    mov [loadlibrary_addr], rax
+
+    sub rsp, 32
+    mov rcx, [rbp - 16]
+    mov rdx, test_str
+    mov r8, test_str.len
+    call get_proc_address_by_name       ; proc addr in rax
+    add rsp, 32
+
+    add rsp, 16                         ; free local variables space
 
     leave
     ret
@@ -42,8 +60,14 @@ main:
 section .data
 %include '../utils_64_data.asm'
 
-kernel32_xor: db 0x5b, 0x55, 0x42, 0x5e, 0x55, 0x5c, 0x3, 0x2, 0x1e, 0x54, 0x5c, 0x5c, 0
-.len equ $ - kernel32_xor - 1
-
 loadlibrary_str: db 'LoadLibraryA', 0
 .len equ $ - loadlibrary_str
+
+virtualalloc_str: db 'VirtualAlloc', 0
+.len equ $ - virtualalloc_str
+
+test_str: db 'AddVectoredContinueHandler', 0
+.len equ $ - test_str
+
+section .bss
+loadlibrary_addr: dq ?

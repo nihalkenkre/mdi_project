@@ -487,7 +487,7 @@ LPVOID MyGetProcAddressByOrdinal(ULONG_PTR ulModuleAddr, WORD wOrdinal)
 
     DWORD *AddressOfFunctions = (DWORD *)(ulModuleAddr + ExportDirectory->AddressOfFunctions);
     DWORD *AddressOfNames = (DWORD *)(ulModuleAddr + ExportDirectory->AddressOfNames);
-    WORD *AddressOfNameOridinals = (WORD *)(ulModuleAddr + ExportDirectory->AddressOfNameOrdinals);
+    DWORD *AddressOfNameOridinals = (DWORD *)(ulModuleAddr + ExportDirectory->AddressOfNameOrdinals);
 
     BYTE *lpvProcAddr = NULL;
 
