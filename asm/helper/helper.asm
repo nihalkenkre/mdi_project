@@ -129,11 +129,11 @@ WinMain:
 
 .shutdown:
 
-    mov rcx, [rbp - 32]             ; proc handle
-    mov rdx, [rbp - 40]             ; payload mem
-    xor r8, r8
-    mov r9, MEM_RELEASE
-    call [virtual_free_ex]
+    ; mov rcx, [rbp - 32]             ; proc handle
+    ; mov rdx, [rbp - 40]             ; payload mem
+    ; xor r8, r8
+    ; mov r9, MEM_RELEASE
+    ; call [virtual_free_ex]
 
     mov rcx, [rbp - 32]             ; proc handle
     call [close_handle]

