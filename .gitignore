@@ -5,3 +5,9 @@
 *exe*
 *dll*
 *obj*
+
+# intermediate binary files
+*bin
+
+# Test
+*tests*
