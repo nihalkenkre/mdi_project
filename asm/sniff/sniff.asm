@@ -244,11 +244,14 @@ DllMain:
 
     cmp qword [rbp + 24], 1                 ; PROCESS_ATTACH
     jne .continue_from_process_attach
+
     jmp .shutdown
 
 .continue_from_process_attach:
     cmp qword [rbp + 24], 0                 ; PROCESS_DETACH
     jne .continue_from_process_detach
+
+    jmp .shutdown
 
 .continue_from_process_detach:
 .shutdown:

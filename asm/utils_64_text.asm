@@ -20,7 +20,7 @@ memcpy:
     ; 8 byte padding
     sub rsp, 32                     ; allocate local variable space
 
-    mov qword [rbp - 8], 0                ; return value
+    mov qword [rbp - 8], 0          ; return value
     mov [rbp - 16], rsi             ; save rsi
     mov [rbp - 24], rdi             ; save rdi
 
@@ -40,14 +40,14 @@ memcpy:
     ret
 
 
-; arg0: ptr to str      rcx
+; arg0: str             rcx
 ;
 ; ret: num chars        rax
 strlen:
     push rbp
     mov rbp, rsp
 
-    mov [rbp + 16], rcx                 ; ptr to str
+    mov [rbp + 16], rcx                 ; str
 
     ; rbp - 8 = output strlen
     ; rbp - 16 = rsi
@@ -56,7 +56,7 @@ strlen:
     mov qword [rbp - 8], 0              ; strlen = 0
     mov [rbp - 16], rsi                 ; save rsi
 
-    mov rsi, [rbp + 16]
+    mov rsi, [rbp + 16]                 ; str
 
     jmp .while_condition
     .loop:
@@ -91,7 +91,7 @@ wstrlen:
     mov qword [rbp - 8], 0                  ; return value
     mov [rbp - 16], rsi                     ; save rsi
 
-    mov rsi, [rbp + 16]
+    mov rsi, [rbp + 16]                     ; wstr
 
     jmp .while_condition
     .loop:
@@ -137,7 +137,7 @@ strcpy:
     lodsb                           ; load from rsi to al
 
     cmp al, 0                       ; end of string ?
-    jz .loop_end                    ; yes
+    je .loop_end                    ; yes
 
     stosb                           ; store al to rdi
     jmp .loop
@@ -179,7 +179,7 @@ wstrcpy:
     lodsw                           ; load from rsi to ax
 
     cmp ax, 0                       ; end of string ?
-    jz .loop_end                    ; yes
+    je .loop_end                    ; yes
 
     stosw                           ; store ax to rdi
     jmp .loop
@@ -199,7 +199,7 @@ wstrcpy:
 ; arg1: wstr            rdx
 ; arg2: str len         r8
 
-; ret: 1 if equal 0 otherwise       rax
+; ret: 1 if equal       rax
 strcmpAW:
     push rbp
     mov rbp, rsp
@@ -236,20 +236,16 @@ strcmpAW:
         jnz .loop
 
     .loop_end_equal:
-
-        mov rdi, [rbp - 24]         ; restore rdi
-        mov rsi, [rbp - 16]         ; restore rsi
         mov rax, 1                  ; return value
-
-        add rsp, 32                 ; free local variable space
-
-        leave
-        ret
+        jmp .shutdown
 
     .loop_end_not_equal:
+        xor rax, rax                ; return value
+        jmp .shutdown
+
+.shutdown:
         mov rdi, [rbp - 24]         ; restore rdi
         mov rsi, [rbp - 16]         ; restore rsi
-        xor rax, rax                ; return value
 
         add rsp, 32                 ; free local variable space
 
@@ -260,7 +256,7 @@ strcmpAW:
 ; arg1: wstr            rdx
 ; arg2: str len         r8
 
-; ret: 1 if equal 0 otherwise       rax
+; ret: 1 if equal       rax
 strcmpiAW:
     push rbp
     mov rbp, rsp
@@ -350,7 +346,7 @@ strcmpiAW:
 ; arg1: str2                    rdx
 ; arg2: str1 len                r8
 ;
-; ret: 1 if equal 0 otherwise   rax
+; ret: 1 if equal               rax
 strcmpAA:
     push rbp
     mov rbp, rsp
@@ -377,22 +373,20 @@ strcmpAA:
     jrcxz .equal
 
     .not_equal:
-        mov rdi, [rbp - 24]         ; restore rdi
-        mov rsi, [rbp - 16]         ; restore rsi
-        xor rax, rax
-
-        add rsp, 32                 ; free local variable space
-
-        leave
-        ret
+        mov qword [rbp - 8], 0
+        jmp .shutdown
 
     .equal:
+        mov qword [rbp - 8], 1
+        jmp .shutdown
+
+.shutdown:
         mov rdi, [rbp - 24]         ; restore rdi
         mov rsi, [rbp - 16]         ; restore rsi
-        mov rax, 1
+
+        mov rax, [rbp - 8]          ; return value
 
         add rsp, 32                 ; free local variable space
-
         leave
         ret
 
@@ -400,7 +394,7 @@ strcmpAA:
 ; arg1: wstr                    rdx
 ; arg2: str len                 r8
 
-; ret: 1 if equal 0 otherwise   rax
+; ret: 1 if equal               rax
 strcmpiAA:
     push rbp
     mov rbp, rsp
@@ -483,7 +477,7 @@ strcmpiAA:
         ret
 
 
-; arg0: ptr to string           rcx
+; arg0: str                     rcx
 ; arg1: chr                     rdx
 ;
 ; return: ptr to chr            rax
@@ -491,7 +485,7 @@ strchr:
     push rbp
     mov rbp, rsp
 
-    mov [rbp + 16], rcx             ; ptr to string
+    mov [rbp + 16], rcx             ; str 
     mov [rbp + 24], rdx             ; chr
 
     ; rbp - 8 = cRet
@@ -501,16 +495,17 @@ strchr:
     sub rsp, 32                     ; allocate local variable space
     sub rsp, 32                     ; allocate shadow space
 
-    mov qword [rbp - 8], 0          ; cRet = 0
+    mov qword [rbp - 8], -1         ; cRet = 0
     mov [rbp - 32], rbx             ; save rbx
 
-    call strlen                     ; rax = strlen
+    mov rcx, [rbp + 16]             ; str
+    call strlen                     ; strlen
 
-    mov [rbp - 16], rax
+    mov [rbp - 16], rax             ; strlen
 
     mov qword [rbp - 24], 0         ; c = 0
     .loop:
-        mov rdx, [rbp + 16]         ; ptr to string in rdx     
+        mov rdx, [rbp + 16]         ; str in rdx     
         mov rbx, [rbp - 24]         ; c in rbx
 
         movzx ecx, byte [rdx + rbx] ; sStr[c]
@@ -524,10 +519,13 @@ strchr:
         cmp [rbp - 24], rax         ; c < strlen ?
 
         jne .loop
+        jmp .shutdown
 
         .equal:
             add rdx, rbx
             mov [rbp - 8], rdx     ; cRet = str + c
+
+            jmp .shutdown
 
 .shutdown:
     mov rbx, [rbp - 32]             ; restore rbx
@@ -564,6 +562,7 @@ my_xor:
     ; 8 bytes padding
     sub rsp, 80                                 ; allocate local variable space
 
+    mov qword [rbp - 8], 0                      ; return value
     mov qword [rbp - 16], 0                     ; i = 0
     mov qword [rbp - 24], 0                     ; j = 0
     mov [rbp - 72], rbx                         ; save rbx
@@ -688,9 +687,9 @@ get_kernel_module_handle:
     mov r9, xor_key.len
     call my_xor                         ; kernel32.dll clear text
 
-    mov rax, gs:[0x60]                  ; peb in rax
-    add rax, 0x18                       ; ldr in rax
-    mov rax, [rax]
+    mov rax, gs:[0x60]                  ; peb
+    add rax, 0x18                       ; *ldr
+    mov rax, [rax]                      ; ldr
     add rax, 0x20                       ; InMemoryOrderModuleList
 
     mov [rbp - 8], rax                  ; *FirstModule

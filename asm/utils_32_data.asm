@@ -86,24 +86,24 @@ output_debug_string_a_xor: db 0x7f, 0x45, 0x44, 0x40, 0x45, 0x44, 0x74, 0x55, 0x
 .len equ $ - output_debug_string_a_xor - 1
 
 section .bss
-kernel32: dq ?
-get_last_error: dq ?
-get_proc_addr: dq ?
-loadlibrary: dq ?
-get_current_process: dq ?
-open_process: dq ?
-create_file_a: dq ?
-write_file: dq ?
-virtual_alloc_ex: dq ?
-virtual_protect_ex: dq ?
-virtual_free_ex: dq ?
-read_process_memory: dq ?
-write_process_memory: dq ?
-create_remote_thread: dq ?
-wait_for_single_object: dq ?
-close_handle: dq ?
-create_toolhelp32_snapshot: dq ?
-process32_first: dq ?
-process32_next: dq ?
-sleep: dq ?
-output_debug_string_a: dq ?
+kernel32: dd ?
+get_last_error: dd ?
+get_proc_addr: dd ?
+loadlibrary: dd ?
+get_current_process: dd ?
+open_process: dd ?
+create_file_a: dd ?
+write_file: dd ?
+virtual_alloc_ex: dd ?
+virtual_protect_ex: dd ?
+virtual_free_ex: dd ?
+read_process_memory: dd ?
+write_process_memory: dd ?
+create_remote_thread: dd ?
+wait_for_single_object: dd ?
+close_handle: dd ?
+create_toolhelp32_snapshot: dd ?
+process32_first: dd ?
+process32_next: dd ?
+sleep: dd ?
+output_debug_string_a: dd ?
