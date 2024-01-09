@@ -1191,6 +1191,7 @@ populate_kernel_function_ptrs_by_name:
 ;
 ; return: proc id       rax
 find_target_process_id:
+    int3
     push rbp
     mov rbp, rsp
 
@@ -1199,28 +1200,25 @@ find_target_process_id:
 
     ; [rbp - 8] = return value
     ; [rbp - 16] = snapshot handle
-    ; [rbp - 580] = process entry struct
-    ; [rbp - 588] = rbx
-    ; 4 bytes padding
-    sub rsp, 592                            ; allocate local variable space
+    ; [rbp - 304] = process entry struct
+    sub rsp, 304                            ; allocate local variable space
     sub rsp, 32                             ; allocate shadow space
 
     mov qword [rbp - 8], 0                  ; return value
-    mov [rbp - 588], rbx                    ; save rbx
 
     mov rcx, TH32CS_SNAPPROCESS
     xor rdx, rdx
-    call [create_toolhelp32_snapshot]  ; snapshot handle
+    call [create_toolhelp32_snapshot]       ; snapshot handle
 
     cmp rax, INVALID_HANDLE_VALUE
     je .shutdown
 
     mov [rbp - 16], rax                     ; snapshot handle
-    mov dword [rbp - 580], 564              ; processentry32.dwsize
+    mov dword [rbp - 304], 304              ; processentry32.dwsize
 
     mov rcx, [rbp - 16]                     ; snapshot handle
     mov rdx, rbp
-    sub rdx, 580                            ; &processentry 
+    sub rdx, 304                            ; &processentry 
     call [process32_first]
 
     cmp rax, 0                              ; if !process32First
@@ -1229,14 +1227,14 @@ find_target_process_id:
 .loop:
     mov rcx, [rbp - 16]                     ; snapshot handle
     mov rdx, rbp
-    sub rdx, 580                            ; &processentry 
+    sub rdx, 304                            ; &processentry 
     call [process32_next]
 
     cmp rax, 0
     je .loop_end
         mov rcx, [rbp + 16]
         mov rdx, rbp
-        sub rdx, 580
+        sub rdx, 304
         add rdx, 44
         mov r8, [rbp + 24]
         call strcmpiAA
@@ -1247,16 +1245,15 @@ find_target_process_id:
         jmp .loop
 
 .process_found:
-    mov rbx, rbp
-    sub rbx, 580
-    add rbx, 8 
+    mov rax, rbp
+    sub rax, 304
+    add rax, 8 
 
-    mov ebx, [rbx]
-    mov [rbp - 8], rbx                      ; return value
+    mov eax, [rax]
+    mov [rbp - 8], rax                      ; return value
 .loop_end:
 
 .shutdown:
-    mov rbx, [rbp - 588]                    ; restore rbx
     mov rax, [rbp - 8]                      ; return value
 
     add rsp, 32                             ; free shadow space
