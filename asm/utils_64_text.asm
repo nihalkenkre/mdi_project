@@ -1191,7 +1191,6 @@ populate_kernel_function_ptrs_by_name:
 ;
 ; return: proc id       rax
 find_target_process_id:
-    int3
     push rbp
     mov rbp, rsp
 

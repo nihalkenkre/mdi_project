@@ -2,9 +2,11 @@
 *vscode*
 
 # Executables
-*exe*
-*dll*
-*obj*
+*.exe
+*.dll
+*.obj
+*.exp
+*.lib
 
 # intermediate binary files
 *bin
