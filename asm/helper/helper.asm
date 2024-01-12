@@ -7,15 +7,15 @@ WinMain:
     push rbp
     mov rbp, rsp
 
-    ; [rbp - 8] = return value
-    ; [rbp - 16] = kernel mod handle
-    ; [rbp - 24] = proc id
-    ; [rbp - 32] = proc handle
-    ; [rbp - 40] = *payload mem
-    ; [rbp - 48] = dw old protect
-    ; [rbp - 56] = hThread
-    ; 8 bytes padding
-    sub rsp, 48                     ; allocate local variable space
+    ; rbp - 8 = return value
+    ; rbp - 16 = kernel mod handle
+    ; rbp - 24 = proc id
+    ; rbp - 32 = proc handle
+    ; rbp - 40 = *payload mem
+    ; rbp - 48 = dw old protect
+    ; rbp - 56 = hThread
+    ; rbp - 64 = 8 bytes padding
+    sub rsp, 64                     ; allocate local variable space
     sub rsp, 32                     ; allocate 32 byte shadow space
 
     mov qword [rbp - 8], 0          ; return value
@@ -129,17 +129,11 @@ WinMain:
 
 .shutdown:
 
-    ; mov rcx, [rbp - 32]             ; proc handle
-    ; mov rdx, [rbp - 40]             ; payload mem
-    ; xor r8, r8
-    ; mov r9, MEM_RELEASE
-    ; call [virtual_free_ex]
-
     mov rcx, [rbp - 32]             ; proc handle
     call [close_handle]
 
     add rsp, 32                     ; free 32 byte shadow space
-    add rsp, 48                     ; free local variable space
+    add rsp, 64                     ; free local variable space
 
     mov rax, [rbp - 8]              ; return value
 

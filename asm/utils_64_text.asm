@@ -17,7 +17,7 @@ memcpy:
     ; rbp - 8 = return value
     ; rbp - 16 = rsi
     ; rbp - 24 = rdi
-    ; 8 byte padding
+    ; rbp - 32 = 8 bytes padding
     sub rsp, 32                     ; allocate local variable space
 
     mov qword [rbp - 8], 0          ; return value
@@ -84,8 +84,8 @@ wstrlen:
 
     mov [rbp + 16], rcx                     ; wstr
 
-    ; [rbp - 8] = output strlen
-    ; [rbp - 16] = rsi
+    ; rbp - 8 = output strlen
+    ; rbp - 16 = rsi
     sub rsp, 16                             ; allocate local variable space
 
     mov qword [rbp - 8], 0                  ; return value
@@ -123,7 +123,7 @@ strcpy:
     ; rbp - 8 = return value
     ; rbp - 16 = save rsi
     ; rbp - 24 = save rdi
-    ; 8 bytes padding
+    ; rbp - 32 = 8 bytes padding
     sub rsp, 32                     ; allocate local variable space
 
     mov qword [rbp - 8], 0          ; return value
@@ -165,7 +165,7 @@ wstrcpy:
     ; rbp - 8 = return value
     ; rbp - 16 = save rsi
     ; rbp - 24 = save rdi
-    ; 8 bytes padding
+    ; rbp - 32 = 8 bytes padding
     sub rsp, 32                     ; allocate local variable space
 
     mov qword [rbp - 8], 0          ; return value
@@ -211,7 +211,7 @@ strcmpAW:
     ; rbp - 8 = return value
     ; rbp - 16 = rsi
     ; rbp - 24 = rdi
-    ; 8 bytes padding
+    ; rbp - 32 = 8 bytes padding
     sub rsp, 32                     ; allocate local variable space
 
     mov qword [rbp - 8], 0          ; return value
@@ -268,7 +268,7 @@ strcmpiAW:
     ; rbp - 8 = return value
     ; rbp - 16 = rsi
     ; rbp - 24 = rdi
-    ; 8 bytes padding
+    ; rbp - 32 = 8 bytes padding
     sub rsp, 32                     ; allocate local variable space
 
     mov qword [rbp - 8], 0          ; return value
@@ -358,7 +358,7 @@ strcmpAA:
     ; rbp - 8 = return value
     ; rbp - 16 = rsi
     ; rbp - 24 = rdi
-    ; 8 bytes padding
+    ; rbp - 32 = 8 bytes padding
     sub rsp, 32                     ; allocate local variable space
 
     mov qword [rbp - 8], 0          ; return value
@@ -406,7 +406,7 @@ strcmpiAA:
     ; rbp - 8 = return value
     ; rbp - 16 = rsi
     ; rbp - 24 = rdi
-    ; 8 bytes padding
+    ; rbp - 32 = 8 bytes padding
     sub rsp, 32                     ; allocate local variable space
 
     mov qword [rbp - 8], 0          ; return value
@@ -550,16 +550,16 @@ my_xor:
     mov [rbp + 32], r8                          ; key
     mov [rbp + 40], r9                          ; key len
 
-    ; [rbp - 8] = return value
-    ; [rbp - 16] = i
-    ; [rbp - 24] = j
-    ; [rbp - 32] = bInput
-    ; [rbp - 40] = b
-    ; [rbp - 48] = data_bit_i
-    ; [rbp - 56] = key_bit_j
-    ; [rbp - 64] = bit_xor
-    ; [rbp - 72] = rbx
-    ; 8 bytes padding
+    ; rbp - 8 = return value
+    ; rbp - 16 = i
+    ; rbp - 24 = j
+    ; rbp - 32 = bInput
+    ; rbp - 40 = b
+    ; rbp - 48 = data_bit_i
+    ; rbp - 56 = key_bit_j
+    ; rbp - 64 = bit_xor
+    ; rbp - 72 = rbx
+    ; rbp - 80 = 8 bytes padding
     sub rsp, 80                                 ; allocate local variable space
 
     mov qword [rbp - 8], 0                      ; return value
@@ -764,7 +764,7 @@ get_proc_address_by_name:
     ; rbp - 328 = loaded forwarded library addr
     ; rbp - 336 = function name strlen
     ; rbp - 344 = rbx
-    ; 8 bytes padding
+    ; rbp - 352 = 8 bytes padding
     sub rsp, 352                            ; allocate local variable space
     sub rsp, 32                             ; allocate shadow space
 
@@ -895,7 +895,7 @@ get_proc_address_by_name:
 
     mov rcx, rbp
     sub rcx, 312
-    call [loadlibrary]                      ; library addr
+    call [load_library_a]                      ; library addr
 
     mov [rbp - 328], rax                    ; library addr
 
@@ -937,8 +937,8 @@ get_proc_address_by_get_proc_addr:
     mov [rbp + 24], rdx                     ; proc name
     mov [rbp + 32], r8                      ; proc name len
 
-    ; [rbp - 8] = return value
-    ; 8 bytes padding
+    ; rbp - 8 = return value
+    ; rbp - 16 = 8 bytes padding
     sub rsp, 16                             ; allocate local variable space
     sub rsp, 32                             ; allocate shadow space
 
@@ -972,8 +972,8 @@ unxor_and_get_proc_addr:
     mov [rbp + 32], r8                          ; xor str len
     mov [rbp + 40], r9                          ; is get proc addr
 
-    ; [rbp - 8] = return value
-    ; 8 bytes padding
+    ; rbp - 8 = return value
+    ; rbp - 16 = 8 bytes padding
     sub rsp, 16                                 ; allocate local variable space
     sub rsp, 32                                 ; allocate shadow space
 
@@ -1037,12 +1037,20 @@ populate_kernel_function_ptrs_by_name:
     mov [get_last_error], rax                   ; GetLastError addr
 
     mov rcx, [rbp + 16]
-    mov rdx, loadlibrary_xor
-    mov r8, loadlibrary_xor.len
+    mov rdx, load_library_a_xor
+    mov r8, load_library_a_xor.len
     xor r9, r9
     call unxor_and_get_proc_addr                ; proc addr
 
-    mov [loadlibrary], rax                      ; LoadLibraryA addr
+    mov [load_library_a], rax                   ; LoadLibraryA addr
+
+    mov rcx, [rbp + 16]
+    mov rdx, get_module_handle_a_xor
+    mov r8, get_module_handle_a_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [get_module_handle_a], rax              ; GetModuleHandleA addr
 
     mov rcx, [rbp + 16]
     mov rdx, get_current_process_xor

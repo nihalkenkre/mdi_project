@@ -490,15 +490,15 @@ my_xor:
     push ebp
     mov ebp, esp
 
-    ; [ebp - 4] = return value
-    ; [ebp - 8] = i
-    ; [ebp - 12] = j
-    ; [ebp - 16] = bInput
-    ; [ebp - 20] = b
-    ; [ebp - 24] = data_bit_i
-    ; [ebp - 28] = key_bit_j
-    ; [ebp - 32] = bit_xor
-    ; [ebp - 36] = ebx
+    ; ebp - 4 = return value
+    ; ebp - 8 = i
+    ; ebp - 12 = j
+    ; ebp - 16 = bInput
+    ; ebp - 20 = b
+    ; ebp - 24 = data_bit_i
+    ; ebp - 28 = key_bit_j
+    ; ebp - 32 = bit_xor
+    ; ebp - 36 = ebx
     sub esp, 36                                 ; allocate local variable space
 
     mov dword [ebp - 4], 0                      ; return value
@@ -838,13 +838,13 @@ get_proc_address_by_name:
 
     mov [ebp - 288], eax                        ; forwarded function name
 
-    cmp dword [loadlibrary], 0                  ; is LoadLibrary proc available
+    cmp dword [load_library_a], 0                  ; is load_library_a proc available
     je .error_shutdown
 
     mov eax, ebp
     sub eax, 284
     push eax
-    call [loadlibrary]                          ; library addr
+    call [load_library_a]                          ; library addr
 
     mov [ebp - 292], eax                        ; library addr
 
@@ -976,12 +976,12 @@ populate_kernel_function_ptrs_by_name:
     mov [get_last_error], eax                   ; GetLastError addr
 
     push dword 0
-    push dword loadlibrary_xor.len
-    push dword loadlibrary_xor
+    push dword load_library_a_xor.len
+    push dword load_library_a_xor
     push dword [ebp + 8]
     call unxor_and_get_proc_addr                ; proc addr
 
-    mov [loadlibrary], eax                      ; LoadLibraryA addr
+    mov [load_library_a], eax                      ; load_library_aA addr
 
     push dword 0
     push dword get_current_process_xor.len
