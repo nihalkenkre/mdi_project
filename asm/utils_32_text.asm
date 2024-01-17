@@ -1,5 +1,3 @@
-section .text
-
 ; mem locations of function args are shown assuming the base pointer is setup as usual in prologue
 
 ; arg0: src                 [ebp + 8]

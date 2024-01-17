@@ -153,7 +153,7 @@ __declspec(dllexport) int HookIAT()
             return TRUE;
         }
 
-        // Check function
+        // Next imported function
         ++pImageThunkData;
     }
 

