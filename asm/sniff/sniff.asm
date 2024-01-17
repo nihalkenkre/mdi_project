@@ -266,7 +266,6 @@ hook_iat:
     ; rbp - 80 = image thunk data
     ; rbp - 88 = &dwOldProtect
     ; rbp - 96 = 8 bytes padding
-    ; int3
     sub rsp, 96                         ; allocate local variable space
     sub rsp, 32                         ; allocate shadow space
 

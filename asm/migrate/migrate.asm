@@ -9,7 +9,6 @@ export migrate
 %include '..\utils_32_text.asm'
 
 migrate:
-; int3
     push ebp
     mov ebp, esp
 
