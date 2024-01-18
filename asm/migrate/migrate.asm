@@ -6,7 +6,7 @@ global DllMain
 global migrate
 export migrate
 
-%include '..\utils_32_text.asm'
+%include '../utils/utils_32_text.asm'
 
 migrate:
     push ebp
@@ -271,7 +271,7 @@ veracrypt_xor: db 0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x
 %include '../sniff/sniff.bin.asm'
 %include 'execute64.bin.asm'
 %include 'wownative.bin.asm'
-%include '../utils_32_data.asm'
+%include '../utils/utils_32_data.asm'
 
 section .bss
-%include '../utils_32_bss.asm'
+%include '../utils/utils_32_bss.asm'
