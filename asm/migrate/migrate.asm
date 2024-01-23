@@ -258,10 +258,8 @@ DllMain:
 .shutdown:
     mov eax, 1                      ; return value
 
-    add esp, 12                     ; free arg stack
-
     leave
-    ret
+    ret 12
 
 
 section .data
