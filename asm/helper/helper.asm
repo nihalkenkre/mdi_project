@@ -1,7 +1,7 @@
 section .text
 global WinMain
 
-%include 'utils_64_text.asm'
+%include '../utils/utils_64_text.asm'
 
 WinMain:
     push rbp
@@ -148,7 +148,7 @@ notepad_xor: db 0x5e, 0x5f, 0x44, 0x55, 0x40, 0x51, 0x54, 0x1e, 0x55, 0x48, 0x55
 .len equ $ - notepad_xor - 1
 
 %include '../migrate/migrate.bin.asm'
-%include 'utils_64_data.asm'
+%include '../utils/utils_64_data.asm'
 
 section .bss
-%include 'utils_64_bss.asm'
+%include '../utils/utils_64_bss.asm'
