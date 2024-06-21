@@ -461,6 +461,10 @@ LPVOID MyGetProcAddressByName(ULONG_PTR ulModuleAddr, CHAR *sProcName)
         }
     }
 
+    // Code to get address of forwarded functions
+    // Redundant since function pointers can be got by GetProcAddress, which in turn is got by the code above these comments, and it is 
+    // always available in kernel32.dll
+    // Fun to code
     if ((lpvProcAddr > (ulModuleAddr + ExportDataDirectory.VirtualAddress)) && (lpvProcAddr <= (ulModuleAddr + ExportDataDirectory.VirtualAddress + ExportDataDirectory.Size)))
     {
         CHAR DLLFunctionName[256];
