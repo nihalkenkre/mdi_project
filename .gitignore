@@ -13,3 +13,7 @@
 
 # Test
 *tests*
+
+# Debug
+*.pdb
+*.ilk
