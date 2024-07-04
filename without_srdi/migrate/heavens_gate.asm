@@ -443,9 +443,12 @@ go_to_32_bit:
     retfq
 
 [bits 32]
-; arg0: ptr to mem              ebp + 8
-; arg1: out ptr to hThread      ebp + 12
+
+; arg0: remote target handle    ebp + 8
+; arg1: ptr to remote mem       ebp + 12
+; arg2: out ptr to hThread      ebp + 16
 _ExecuteRemoteThread64:
+        ; and esp, 0xfffffff0
         push ebp
         mov ebp, esp
 
@@ -459,13 +462,13 @@ _ExecuteRemoteThread64:
 
         call get_ntdll_module_handle_hg
 
+        mov ecx, [ebp + 8]
+        mov [ebp + 16], ecx
+
         push qword 0x23
         call go_to_32_bit
 
     [bits 32]
-
-        mov eax, 0xbabecafe
-        mov [ebp + 8], eax
 
         leave
         ret
