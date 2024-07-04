@@ -51,9 +51,6 @@ int main(void)
         UtilsResumeThread(hThread);
     }
 
-    CHAR cPrintString[] = {0x59, 0x6f, 0x6f, 0x68, 0x6f, 0x6f, 0x6f, 0x21, 0x21, 0x21, 0};
-    UtilsOutputDebugStringA(cPrintString);
-
 shutdown:
     UtilsCloseHandle(hTargetProc);
 
