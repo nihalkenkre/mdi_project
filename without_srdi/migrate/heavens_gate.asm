@@ -1,7 +1,6 @@
 section .text
 
 global _ExecuteRemoteThread64
-; global _ExecuteCreateProcess64
 
 jmp _ExecuteRemoteThread64
 
@@ -448,17 +447,18 @@ go_to_32_bit:
 ; arg1: ptr to remote mem       ebp + 12
 ; arg2: out ptr to hThread      ebp + 16
 _ExecuteRemoteThread64:
-        ; and esp, 0xfffffff0
         push ebp
         mov ebp, esp
 
-        ; ebp - 8 = ntdll64 addr
+        ; ebp - 8  return value
         ; ebp - 32 = RtlCreateUserThread str
         ; ebp - 40 = RtlCreateUserThread addr
-        ; ebp - 48 = padding bytes
+        ; ebp - 48 = ntdll addr
         sub esp, 48                             ; local space
         sub esp, 80                             ; shadow space
         
+        mov dword [ebp - 8], 0
+
         ; RtlCreateUserThread str
         mov eax, 'RtlC'
         mov [ebp - 32], eax
@@ -483,9 +483,9 @@ _ExecuteRemoteThread64:
 
         call get_ntdll_module_handle_hg
 
-        mov [ebp - 8], rax
+        mov [ebp - 48], rax
 
-        mov rcx, [ebp - 8]
+        mov rcx, [ebp - 48]
         mov rdx, rbp
         sub rdx, 32                         ; RtlCreateUserThread str
         call get_proc_address_by_name_hg
@@ -494,7 +494,7 @@ _ExecuteRemoteThread64:
 
         mov ecx, [rbp + 8]                  ; target handle
         xor edx, edx
-        xor r8d, r8d
+        mov r8d, r8d
         xor r9d, r9d
         mov qword [rsp + 32], 0
         mov qword [rsp + 40], 0
@@ -504,6 +504,7 @@ _ExecuteRemoteThread64:
         mov eax, [rbp + 16]
         mov qword [rsp + 64], rax           ; out ptr to thread
         mov qword [rsp + 72], 0
+        
         call [rbp - 40]                     ; RtlCreateUserThread
 
         push qword 0x23

