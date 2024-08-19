@@ -187,7 +187,8 @@ hook:
         mov rcx, rax
         call utils_str_hash
 
-        cmp rax, [r15 + kernel32Hash]
+        mov rdx, 0xbef5f1ec          ; kernel32 hash
+        cmp rax, rdx
         je .module_found
 
         add qword [rbp - 32], 20    ; add sizeof IMAGE_IMPORT_DESCRIPTOR
@@ -267,14 +268,12 @@ main:
 dbgHelpStr: db 'dbgHelp', 0
 .len equ $ - dbgHelpStr - 1
 
-kernel32Hash: dq 0xbef5f1ec 
-
 align 16
 data:
 ; getModuleHandleA              0
 ; loadLibraryA                  8
 ; imageDirectoryEntryToDataEx   16
 ; virtualProtect                24
-; wideCharToMultiByte           32
 ; func addr page                40
 ; hooked func addr              48
+; wideCharToMultiByte           32

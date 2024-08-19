@@ -17,7 +17,6 @@ jmp hooked_func
 ; arg6: lpDefaultChar       [rsp + 48]
 ; arg7: lpUseDefaultChar    [rsp + 56]
 hooked_func:
-    int3
         push rbp
         mov rbp, rsp
 
