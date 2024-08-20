@@ -483,9 +483,9 @@ _ExecuteRemoteThread64:
 
         call get_ntdll_module_handle_hg
 
-        mov [ebp - 48], rax
+        mov [ebp - 48], rax                 ; ntdll add
 
-        mov rcx, [ebp - 48]
+        mov rcx, [ebp - 48]                 ; ntdll addr
         mov rdx, rbp
         sub rdx, 32                         ; RtlCreateUserThread str
         call get_proc_address_by_name_hg
@@ -494,7 +494,7 @@ _ExecuteRemoteThread64:
 
         mov ecx, [rbp + 8]                  ; target handle
         xor edx, edx
-        mov r8d, r8d
+        xor r8d, r8d
         xor r9d, r9d
         mov qword [rsp + 32], 0
         mov qword [rsp + 40], 0
