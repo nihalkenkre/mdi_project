@@ -137,24 +137,24 @@ hook:
         ; rbp - 32  = current image import descriptor
         ; rbp - 40  = r12
         ; rbp - 48  = oldProtect
-        sub rsp, 48             ; local variable space
-        sub rsp, 32             ; shadow variable space
+        sub rsp, 48                 ; local variable space
+        sub rsp, 32                 ; shadow variable space
 
-        mov qword [rbp - 8], 0  ; return value
+        mov qword [rbp - 8], 0      ; return value
 
         ; get current module handle
         xor rcx, rcx
-        call [r15 + data]   ; getModuleHandleA
+        call [r15 + data]           ; getModuleHandleA
 
         cmp rax, 0
         je .shutdown
 
-        mov [rbp - 16], rax     ; current module hnd
+        mov [rbp - 16], rax         ; current module hnd
 
         ; load dbgHelp
         mov rcx, r15
         add rcx, dbgHelpStr
-        call [r15 + data + 8]   ; loadLibraryA
+        call [r15 + data + 8]       ; loadLibraryA
 
         cmp rax, 0
         je .shutdown
@@ -166,7 +166,7 @@ hook:
         mov r9, rbp
         sub r9, 24                  ; import descriptor size
         mov qword [rsp + 32], 0
-        call [r15 + data + 16]    ; ImageDirectoryEntryToDataEx
+        call [r15 + data + 16]      ; ImageDirectoryEntryToDataEx
 
         cmp rax, 0
         je .shutdown
@@ -187,7 +187,7 @@ hook:
         mov rcx, rax
         call utils_str_hash
 
-        mov rdx, 0xbef5f1ec          ; kernel32 hash
+        mov rdx, 0xbef5f1ec         ; kernel32 hash
         cmp rax, rdx
         je .module_found
 
@@ -205,7 +205,7 @@ hook:
         mov eax, [rax]
         add rax, [rbp - 16]         ; add current module hnd, rax is IMAGE_THUNK_DATA
 
-        mov rcx, [r15 + data + 32]   ; wideCharToMultiByte
+        mov rcx, [r15 + data + 48]  ; wideCharToMultiByte
 
     .function_loop:
         cmp [rax], rcx
@@ -219,10 +219,10 @@ hook:
         jmp .shutdown
 
     .function_found:
-        mov [r15 + data + 40], rax
+        mov [r15 + data + 32], rax  ; func addr page
 
         ; change protection to RW
-        mov rcx, [r15 + data + 40]   ; func addr page
+        mov rcx, [r15 + data + 32]  ; func addr page
         mov rdx, 4096
         mov r8, 0x4                 ; PAGE_READWRITE
         mov r9, rbp
@@ -233,12 +233,12 @@ hook:
         je .shutdown
 
         ; copy the hooked mem address to IAT
-        mov rax, [r15 + data + 40]   ; func addr page
-        mov rcx, [r15 + data + 48]   ; hooked mem
+        mov rax, [r15 + data + 32]   ; func addr page
+        mov rcx, [r15 + data + 40]   ; hooked mem
         mov qword [rax], rcx
 
         ; change protection to oldProtect
-        mov rcx, [r15 + data + 40]   ; func addr page
+        mov rcx, [r15 + data + 32]  ; func addr page
         mov rdx, 4096
         mov r8, [rbp - 48]          ; oldProtect
         mov r9, rbp
@@ -274,6 +274,6 @@ data:
 ; loadLibraryA                  8
 ; imageDirectoryEntryToDataEx   16
 ; virtualProtect                24
-; func addr page                40
-; hooked func addr              48
-; wideCharToMultiByte           32
+; func addr page                32
+; hooked func addr              40 
+; wideCharToMultiByte           48
